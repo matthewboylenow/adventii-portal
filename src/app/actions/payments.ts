@@ -5,7 +5,7 @@ import { invoices, payments, organizations } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser, canPay } from '@/lib/auth';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 
 export async function createCheckoutSession(invoiceId: string) {
   const user = await getCurrentUser();
@@ -52,7 +52,7 @@ export async function createCheckoutSession(invoiceId: string) {
 
   // Create Stripe Checkout Session
   // Adventii absorbs fees, so we just charge the exact amount
-  const session = await stripe.checkout.sessions.create({
+  const session = await getStripe().checkout.sessions.create({
     payment_method_types: ['card', 'us_bank_account'],
     mode: 'payment',
     line_items: [

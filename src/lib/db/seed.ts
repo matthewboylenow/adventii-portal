@@ -154,7 +154,7 @@ async function seed() {
       isApprover: true,
     },
 
-    // Support staff (reference only)
+    // Support staff (can also approve)
     {
       firstName: 'Jon',
       lastName: 'Chironna',
@@ -162,7 +162,7 @@ async function seed() {
       role: 'client_viewer' as const,
       canPay: false,
       hasPortalAccess: false,
-      isApprover: false,
+      isApprover: true,
     },
     {
       firstName: 'Liz',
@@ -171,7 +171,7 @@ async function seed() {
       role: 'client_viewer' as const,
       canPay: false,
       hasPortalAccess: false,
-      isApprover: false,
+      isApprover: true,
     },
     {
       firstName: 'Marielena',
@@ -180,7 +180,7 @@ async function seed() {
       role: 'client_viewer' as const,
       canPay: false,
       hasPortalAccess: false,
-      isApprover: false,
+      isApprover: true,
     },
     {
       firstName: 'Marielle',
@@ -189,7 +189,7 @@ async function seed() {
       role: 'client_viewer' as const,
       canPay: false,
       hasPortalAccess: false,
-      isApprover: false,
+      isApprover: true,
     },
     {
       firstName: 'MaryAnn',
@@ -198,7 +198,7 @@ async function seed() {
       role: 'client_viewer' as const,
       canPay: false,
       hasPortalAccess: false,
-      isApprover: false,
+      isApprover: true,
     },
     {
       firstName: 'Megan',
@@ -207,7 +207,7 @@ async function seed() {
       role: 'client_viewer' as const,
       canPay: false,
       hasPortalAccess: false,
-      isApprover: false,
+      isApprover: true,
     },
   ];
 
