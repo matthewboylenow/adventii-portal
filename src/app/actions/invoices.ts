@@ -10,6 +10,8 @@ import {
 import { eq, and, desc, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { requireAdventiiStaff, getCurrentUser, canCreateInvoices } from '@/lib/auth';
+import { sendInvoiceEmail } from '@/lib/email';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { z } from 'zod';
 
 const lineItemSchema = z.object({
@@ -290,6 +292,13 @@ export async function sendInvoice(id: string) {
     throw new Error('Invoice has already been sent');
   }
 
+  // Get organization for email details
+  const [org] = await db
+    .select()
+    .from(organizations)
+    .where(eq(organizations.id, invoice.organizationId))
+    .limit(1);
+
   // Update status to sent
   await db
     .update(invoices)
@@ -299,7 +308,23 @@ export async function sendInvoice(id: string) {
     })
     .where(eq(invoices.id, id));
 
-  // TODO: Send email notification
+  // Send email notification if organization has email
+  if (org?.email) {
+    try {
+      await sendInvoiceEmail({
+        invoiceNumber: invoice.invoiceNumber,
+        invoiceId: invoice.id,
+        recipientEmail: org.email,
+        recipientName: org.name,
+        organizationName: org.name,
+        amountDue: formatCurrency(invoice.amountDue),
+        dueDate: invoice.dueDate ? formatDate(invoice.dueDate) : undefined,
+      });
+    } catch (emailError) {
+      console.error('Failed to send invoice email:', emailError);
+      // Don't fail the whole operation if email fails
+    }
+  }
 
   revalidatePath('/invoices');
   revalidatePath(`/invoices/${id}`);
