@@ -40,9 +40,9 @@ export async function createTimeLog(input: CreateTimeLogInput) {
     throw new Error('Work order not found');
   }
 
-  // Only allow time logs for approved, in_progress, or completed work orders
-  if (!['approved', 'in_progress', 'completed'].includes(workOrder.status)) {
-    throw new Error('Cannot add time logs to work orders in this status');
+  // Only allow time logs for pending_approval, approved, in_progress, or completed work orders
+  if (!['pending_approval', 'approved', 'in_progress', 'completed'].includes(workOrder.status)) {
+    throw new Error('Cannot add time logs to draft work orders');
   }
 
   // Parse date and times

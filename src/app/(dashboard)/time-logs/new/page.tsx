@@ -31,7 +31,7 @@ export default async function NewTimeLogPage({ searchParams }: NewTimeLogPagePro
     .where(
       and(
         eq(workOrders.organizationId, user.organizationId),
-        inArray(workOrders.status, ['approved', 'in_progress', 'completed'])
+        inArray(workOrders.status, ['pending_approval', 'approved', 'in_progress', 'completed'])
       )
     )
     .orderBy(workOrders.eventDate);

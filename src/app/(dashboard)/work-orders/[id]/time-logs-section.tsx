@@ -46,7 +46,7 @@ export function TimeLogsSection({
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
-  const canAddTimeLogs = ['approved', 'in_progress', 'completed'].includes(workOrderStatus);
+  const canAddTimeLogs = ['pending_approval', 'approved', 'in_progress', 'completed'].includes(workOrderStatus);
 
   const handleDelete = async (logId: string) => {
     if (!confirm('Are you sure you want to delete this time log?')) {

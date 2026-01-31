@@ -45,9 +45,9 @@ export async function createChangeOrder(data: CreateChangeOrderInput) {
     throw new Error('Work order not found');
   }
 
-  // Can only create change orders for approved, in_progress, or completed work orders
-  if (!['approved', 'in_progress', 'completed'].includes(workOrder.status)) {
-    throw new Error('Can only create change orders for approved work orders');
+  // Can only create change orders for submitted work orders (not drafts)
+  if (!['pending_approval', 'approved', 'in_progress', 'completed'].includes(workOrder.status)) {
+    throw new Error('Can only create change orders for submitted work orders');
   }
 
   // Create the change order
