@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { formatShortDate, getVenueLabel, getEventTypeLabel } from '@/lib/utils';
+import { formatShortDate, formatTime, getVenueLabel, getEventTypeLabel } from '@/lib/utils';
 import { Plus, FileText, Calendar } from 'lucide-react';
 
 interface WorkOrdersPageProps {
@@ -43,6 +43,7 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
       id: workOrders.id,
       eventName: workOrders.eventName,
       eventDate: workOrders.eventDate,
+      startTime: workOrders.startTime,
       venue: workOrders.venue,
       eventType: workOrders.eventType,
       status: workOrders.status,
@@ -209,7 +210,10 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
                         </p>
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
-                        {formatShortDate(wo.eventDate)}
+                        <div>{formatShortDate(wo.eventDate)}</div>
+                        {wo.startTime && (
+                          <div className="text-gray-400">{formatTime(wo.startTime)}</div>
+                        )}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">
                         {getVenueLabel(wo.venue)}

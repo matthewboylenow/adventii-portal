@@ -5,7 +5,7 @@ import { workOrders, invoices } from '@/lib/db/schema';
 import { eq, sql, desc } from 'drizzle-orm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { formatCurrency, formatShortDate } from '@/lib/utils';
+import { formatCurrency, formatShortDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
 import {
   FileText,
@@ -173,6 +173,7 @@ export default async function DashboardPage() {
                       </p>
                       <p className="text-sm text-gray-500">
                         {formatShortDate(wo.eventDate)}
+                        {wo.startTime && ` at ${formatTime(wo.startTime)}`}
                       </p>
                     </div>
                     <StatusBadge status={wo.status} />
