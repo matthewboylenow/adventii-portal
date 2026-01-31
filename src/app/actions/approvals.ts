@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { approvals, approvalTokens, workOrders, users } from '@/lib/db/schema';
+import { approvals, approvalTokens, workOrders, users, changeOrders } from '@/lib/db/schema';
 import { eq, and, gt } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { put } from '@vercel/blob';
@@ -10,6 +10,7 @@ import { generateWorkOrderHash } from '@/lib/utils';
 interface SignApprovalInput {
   token: string;
   workOrderId: string;
+  changeOrderId?: string;
   approverId?: string;
   approverName: string;
   approverTitle?: string;
@@ -57,14 +58,35 @@ export async function signApproval(input: SignApprovalInput) {
     throw new Error('Work order not found');
   }
 
-  if (workOrder.status !== 'pending_approval') {
-    throw new Error('Work order is not pending approval');
+  const isChangeOrderApproval = !!tokenRecord.changeOrderId;
+
+  // Validate based on approval type
+  if (isChangeOrderApproval) {
+    // For change orders, verify the change order exists and is not already approved
+    const [changeOrder] = await db
+      .select()
+      .from(changeOrders)
+      .where(eq(changeOrders.id, tokenRecord.changeOrderId!))
+      .limit(1);
+
+    if (!changeOrder) {
+      throw new Error('Change order not found');
+    }
+
+    if (changeOrder.isApproved) {
+      throw new Error('Change order has already been approved');
+    }
+  } else {
+    // For regular work orders, verify status
+    if (workOrder.status !== 'pending_approval') {
+      throw new Error('Work order is not pending approval');
+    }
   }
 
   // Upload signature to Vercel Blob
   const signatureBuffer = Buffer.from(input.signatureData.split(',')[1], 'base64');
   const blob = await put(
-    `signatures/${input.workOrderId}-${Date.now()}.png`,
+    `signatures/${input.workOrderId}-${isChangeOrderApproval ? 'co-' + tokenRecord.changeOrderId : ''}-${Date.now()}.png`,
     signatureBuffer,
     {
       access: 'public',
@@ -87,7 +109,8 @@ export async function signApproval(input: SignApprovalInput) {
       signedAt: new Date(),
       deviceInfo: input.deviceInfo || null,
       workOrderHash,
-      isChangeOrder: false,
+      isChangeOrder: isChangeOrderApproval,
+      changeOrderId: tokenRecord.changeOrderId || null,
     })
     .returning();
 
@@ -97,11 +120,23 @@ export async function signApproval(input: SignApprovalInput) {
     .set({ usedAt: new Date() })
     .where(eq(approvalTokens.id, tokenRecord.id));
 
-  // Update work order status
-  await db
-    .update(workOrders)
-    .set({ status: 'approved', updatedAt: new Date() })
-    .where(eq(workOrders.id, input.workOrderId));
+  if (isChangeOrderApproval) {
+    // Update change order to mark as approved
+    await db
+      .update(changeOrders)
+      .set({
+        isApproved: true,
+        approvalId: approval.id,
+        updatedAt: new Date(),
+      })
+      .where(eq(changeOrders.id, tokenRecord.changeOrderId!));
+  } else {
+    // Update work order status
+    await db
+      .update(workOrders)
+      .set({ status: 'approved', updatedAt: new Date() })
+      .where(eq(workOrders.id, input.workOrderId));
+  }
 
   revalidatePath('/work-orders');
   revalidatePath(`/work-orders/${input.workOrderId}`);
@@ -142,8 +177,30 @@ export async function getApprovalData(token: string) {
     return { error: 'Work order not found' };
   }
 
-  if (workOrder.status !== 'pending_approval') {
-    return { error: 'Work order is no longer pending approval' };
+  const isChangeOrderApproval = !!tokenRecord.changeOrderId;
+  let changeOrder = null;
+
+  if (isChangeOrderApproval) {
+    // Get change order details
+    const [co] = await db
+      .select()
+      .from(changeOrders)
+      .where(eq(changeOrders.id, tokenRecord.changeOrderId!))
+      .limit(1);
+
+    if (!co) {
+      return { error: 'Change order not found' };
+    }
+
+    if (co.isApproved) {
+      return { error: 'Change order has already been approved' };
+    }
+
+    changeOrder = co;
+  } else {
+    if (workOrder.status !== 'pending_approval') {
+      return { error: 'Work order is no longer pending approval' };
+    }
   }
 
   // Get approvers for selection
@@ -165,7 +222,9 @@ export async function getApprovalData(token: string) {
 
   return {
     workOrder,
+    changeOrder,
     approvers,
     token,
+    isChangeOrderApproval,
   };
 }

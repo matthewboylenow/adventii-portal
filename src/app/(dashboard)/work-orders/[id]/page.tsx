@@ -32,6 +32,7 @@ import {
   Copy,
 } from 'lucide-react';
 import { WorkOrderActions } from './work-order-actions';
+import { ChangeOrdersSection } from './change-orders-section';
 
 interface WorkOrderPageProps {
   params: Promise<{ id: string }>;
@@ -132,6 +133,26 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
       .limit(1);
     approvalToken = token?.token;
   }
+
+  // Get all approval tokens for change orders
+  const changeOrderTokens = await db
+    .select()
+    .from(approvalTokens)
+    .where(eq(approvalTokens.workOrderId, workOrder.id));
+
+  // Calculate estimated max for change order comparison
+  const getEstimatedMax = () => {
+    switch (workOrder.estimateType) {
+      case 'range':
+        return workOrder.estimatedHoursMax || '0';
+      case 'fixed':
+        return workOrder.estimatedHoursFixed || '0';
+      case 'not_to_exceed':
+        return workOrder.estimatedHoursNTE || '0';
+      default:
+        return '0';
+    }
+  };
 
   const showEditButton = canEditWorkOrders(user) && ['draft', 'pending_approval'].includes(workOrder.status);
   const showDeleteButton = canDeleteWorkOrders(user) && workOrder.status === 'draft';
@@ -451,6 +472,22 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
             )}
           </CardContent>
         </Card>
+      )}
+
+      {/* Change Orders */}
+      {isStaff && (
+        <ChangeOrdersSection
+          workOrderId={workOrder.id}
+          eventName={workOrder.eventName}
+          hourlyRate={workOrder.hourlyRateSnapshot}
+          actualHours={workOrder.actualHours || '0'}
+          estimatedMax={getEstimatedMax()}
+          changeOrders={workOrderChangeOrders}
+          approvals={workOrderApprovals.filter(a => a.isChangeOrder)}
+          approvalTokens={changeOrderTokens}
+          isStaff={isStaff}
+          workOrderStatus={workOrder.status}
+        />
       )}
 
       {/* Incidents */}

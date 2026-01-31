@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { formatShortDate, getVenueLabel, getEventTypeLabel } from '@/lib/utils';
-import { Plus, FileText } from 'lucide-react';
+import { Plus, FileText, Calendar } from 'lucide-react';
 
 interface WorkOrdersPageProps {
   searchParams: Promise<{
@@ -95,12 +95,20 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
           </p>
         </div>
         {showCreateButton && (
-          <Link href="/work-orders/new">
-            <Button className="flex items-center gap-2">
-              <Plus className="h-4 w-4" />
-              New Work Order
-            </Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/work-orders/series/new">
+              <Button variant="outline" className="flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Create Series
+              </Button>
+            </Link>
+            <Link href="/work-orders/new">
+              <Button className="flex items-center gap-2">
+                <Plus className="h-4 w-4" />
+                New Work Order
+              </Button>
+            </Link>
+          </div>
         )}
       </div>
 

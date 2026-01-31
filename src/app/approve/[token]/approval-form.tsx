@@ -15,11 +15,13 @@ interface Approver {
 
 interface ApprovalFormProps {
   workOrderId: string;
+  changeOrderId?: string;
   token: string;
   approvers: Approver[];
+  isChangeOrder?: boolean;
 }
 
-export function ApprovalForm({ workOrderId, token, approvers }: ApprovalFormProps) {
+export function ApprovalForm({ workOrderId, changeOrderId, token, approvers, isChangeOrder = false }: ApprovalFormProps) {
   const [isPending, startTransition] = useTransition();
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +68,7 @@ export function ApprovalForm({ workOrderId, token, approvers }: ApprovalFormProp
         await signApproval({
           token,
           workOrderId,
+          changeOrderId,
           approverId: isCustom ? undefined : selectedApproverId,
           approverName,
           approverTitle: approverTitle || undefined,
@@ -89,7 +92,7 @@ export function ApprovalForm({ workOrderId, token, approvers }: ApprovalFormProp
             Approval Submitted
           </h2>
           <p className="text-green-700">
-            Thank you! The work order has been approved successfully.
+            Thank you! The {isChangeOrder ? 'change order' : 'work order'} has been approved successfully.
           </p>
           <p className="text-sm text-green-600 mt-4">
             You can close this window now.
@@ -173,8 +176,8 @@ export function ApprovalForm({ workOrderId, token, approvers }: ApprovalFormProp
 
         {/* Legal Notice */}
         <p className="text-xs text-gray-500">
-          By signing above, I confirm that I am authorized to approve this work order
-          and agree to the scope and estimated costs outlined above.
+          By signing above, I confirm that I am authorized to approve this {isChangeOrder ? 'change order' : 'work order'}
+          and agree to the {isChangeOrder ? 'additional hours and costs' : 'scope and estimated costs'} outlined above.
         </p>
 
         {/* Submit */}

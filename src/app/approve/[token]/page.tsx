@@ -4,13 +4,15 @@ import { Card, CardContent, CardHeader, CardTitle, StatusBadge } from '@/compone
 import {
   formatShortDate,
   formatCurrency,
+  formatHours,
   getVenueLabel,
   getEventTypeLabel,
 } from '@/lib/utils';
-import { CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react';
 import { db } from '@/lib/db';
 import { serviceTemplates } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
+import { getReasonLabel } from '@/app/actions/change-orders';
 
 interface ApprovePageProps {
   params: Promise<{ token: string }>;
@@ -36,7 +38,7 @@ export default async function ApprovePage({ params }: ApprovePageProps) {
     );
   }
 
-  const { workOrder, approvers } = data;
+  const { workOrder, changeOrder, approvers, isChangeOrderApproval } = data;
 
   // Get services
   let scopeServices: { id: string; name: string }[] = [];
@@ -76,34 +78,89 @@ export default async function ApprovePage({ params }: ApprovePageProps) {
     }
   };
 
+  const additionalCost = changeOrder
+    ? parseFloat(changeOrder.additionalHours) * parseFloat(workOrder.hourlyRateSnapshot)
+    : 0;
+
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center">
           <span className="font-[Audiowide] text-2xl text-brand-purple tracking-wider">
-            ADVENTII
+            ADVENTII MEDIA
           </span>
           <h1 className="text-xl font-bold text-gray-900 mt-4">
-            Work Order Approval
+            {isChangeOrderApproval ? 'Change Order Approval' : 'Work Order Approval'}
           </h1>
           <p className="text-gray-600 mt-1">
-            Please review and sign to approve this work order
+            {isChangeOrderApproval
+              ? 'Please review and sign to approve this change order'
+              : 'Please review and sign to approve this work order'}
           </p>
         </div>
+
+        {/* Change Order Details (if applicable) */}
+        {isChangeOrderApproval && changeOrder && (
+          <Card className="border-yellow-300 bg-yellow-50">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                Change Order Request
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-gray-500">Additional Hours</p>
+                  <p className="font-medium text-lg">{formatHours(changeOrder.additionalHours)}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Additional Cost</p>
+                  <p className="font-medium text-lg text-yellow-700">
+                    {formatCurrency(additionalCost)}
+                  </p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-gray-500">Reason</p>
+                <p className="font-medium">
+                  {changeOrder.reason === 'other'
+                    ? changeOrder.reasonOther
+                    : getReasonLabel(changeOrder.reason)}
+                </p>
+              </div>
+
+              {changeOrder.notes && (
+                <div>
+                  <p className="text-sm text-gray-500">Notes</p>
+                  <p className="text-sm">{changeOrder.notes}</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* Work Order Details */}
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between">
               <div>
-                <CardTitle>{workOrder.eventName}</CardTitle>
-                <p className="text-gray-600 mt-1">
-                  {getEventTypeLabel(workOrder.eventType)} at{' '}
-                  {workOrder.venue === 'other'
-                    ? workOrder.venueOther
-                    : getVenueLabel(workOrder.venue)}
-                </p>
+                <CardTitle>
+                  {isChangeOrderApproval ? 'Original Work Order' : workOrder.eventName}
+                </CardTitle>
+                {!isChangeOrderApproval && (
+                  <p className="text-gray-600 mt-1">
+                    {getEventTypeLabel(workOrder.eventType)} at{' '}
+                    {workOrder.venue === 'other'
+                      ? workOrder.venueOther
+                      : getVenueLabel(workOrder.venue)}
+                  </p>
+                )}
+                {isChangeOrderApproval && (
+                  <p className="text-gray-600 mt-1">{workOrder.eventName}</p>
+                )}
               </div>
               <StatusBadge status={workOrder.status} />
             </div>
@@ -116,14 +173,18 @@ export default async function ApprovePage({ params }: ApprovePageProps) {
                 <p className="font-medium">{formatShortDate(workOrder.eventDate)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">Estimated Cost</p>
+                <p className="text-sm text-gray-500">
+                  {isChangeOrderApproval ? 'Original Estimated Cost' : 'Estimated Cost'}
+                </p>
                 <p className="font-medium text-brand-purple">{getEstimatedCost()}</p>
               </div>
             </div>
 
             {/* Time Estimate */}
             <div>
-              <p className="text-sm text-gray-500">Time Estimate</p>
+              <p className="text-sm text-gray-500">
+                {isChangeOrderApproval ? 'Original Time Estimate' : 'Time Estimate'}
+              </p>
               <p className="font-medium">{getEstimateDisplay()}</p>
               <p className="text-xs text-gray-400">
                 @ {formatCurrency(workOrder.hourlyRateSnapshot)}/hr
@@ -164,8 +225,10 @@ export default async function ApprovePage({ params }: ApprovePageProps) {
         {/* Approval Form */}
         <ApprovalForm
           workOrderId={workOrder.id}
+          changeOrderId={changeOrder?.id}
           token={token}
           approvers={approvers}
+          isChangeOrder={isChangeOrderApproval}
         />
       </div>
     </div>
