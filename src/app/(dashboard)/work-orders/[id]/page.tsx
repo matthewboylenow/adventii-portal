@@ -13,7 +13,7 @@ import {
 } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import Link from 'next/link';
-import { Button, Card, CardContent, CardHeader, CardTitle, StatusBadge } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, StatusBadge, CopyButton } from '@/components/ui';
 import {
   formatShortDate,
   formatDateTime,
@@ -29,7 +29,6 @@ import {
   CheckCircle,
   AlertTriangle,
   ExternalLink,
-  Copy,
 } from 'lucide-react';
 import { WorkOrderActions } from './work-order-actions';
 import { ChangeOrdersSection } from './change-orders-section';
@@ -224,17 +223,9 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
                 </p>
               </div>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    const url = `${window.location.origin}/approve/${approvalToken}`;
-                    navigator.clipboard.writeText(url);
-                  }}
-                >
-                  <Copy className="h-4 w-4 mr-2" />
-                  Copy Link
-                </Button>
+                <CopyButton
+                  text={`${process.env.NEXT_PUBLIC_APP_URL || 'https://portal.adventii.com'}/approve/${approvalToken}`}
+                />
                 <Link href={`/approve/${approvalToken}`} target="_blank">
                   <Button size="sm">
                     <ExternalLink className="h-4 w-4 mr-2" />
