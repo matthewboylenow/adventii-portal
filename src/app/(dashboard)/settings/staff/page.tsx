@@ -5,7 +5,7 @@ import { users } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import Link from 'next/link';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
-import { Plus, User, CheckCircle, XCircle } from 'lucide-react';
+import { Plus, User, CheckCircle, XCircle, Pencil } from 'lucide-react';
 
 export default async function StaffPage() {
   const user = await getCurrentUser();
@@ -123,7 +123,7 @@ export default async function StaffPage() {
                         )}
                       </div>
                     </div>
-                    <div className="flex items-center">
+                    <div className="flex items-center gap-3">
                       {member.isActive ? (
                         <span className="flex items-center gap-1 text-green-600 text-sm">
                           <CheckCircle className="h-4 w-4" />
@@ -135,6 +135,11 @@ export default async function StaffPage() {
                           Inactive
                         </span>
                       )}
+                      <Link href={`/settings/staff/${member.id}`}>
+                        <Button variant="ghost" size="sm">
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </Link>
                     </div>
                   </div>
                 </div>
