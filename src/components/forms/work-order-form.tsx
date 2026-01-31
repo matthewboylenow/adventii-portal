@@ -3,7 +3,7 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button, Input, Select, Textarea, Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui';
+import { Button, Input, Select, Textarea, Card, CardContent, CardFooter, CardHeader, CardTitle, useToast } from '@/components/ui';
 import { useTransition } from 'react';
 import { createWorkOrder, updateWorkOrder, CreateWorkOrderInput } from '@/app/actions/work-orders';
 
@@ -71,6 +71,7 @@ export function WorkOrderForm({
   mode = 'create',
 }: WorkOrderFormProps) {
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   const {
     register,
@@ -158,8 +159,16 @@ export function WorkOrderForm({
           await createWorkOrder(data as CreateWorkOrderInput);
         }
       } catch (error) {
+        // Redirect throws an error internally - let it propagate
+        if (error && typeof error === 'object' && 'digest' in error &&
+            typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
+          throw error;
+        }
         console.error('Error submitting work order:', error);
-        alert(error instanceof Error ? error.message : 'Failed to save work order');
+        toast.error(
+          'Failed to save work order',
+          error instanceof Error ? error.message : 'An unexpected error occurred'
+        );
       }
     });
   };

@@ -12,6 +12,7 @@ import {
   getIncidentOutcomeLabel,
 } from '@/lib/utils';
 import { Plus, AlertTriangle, Pencil, Trash2, Bell, CheckCircle } from 'lucide-react';
+import { EmptyIncidents } from '@/components/ui';
 import { deleteIncidentReport, markClientNotified } from '@/app/actions/incident-reports';
 
 interface IncidentsPageProps {
@@ -178,9 +179,7 @@ export default async function IncidentsPage({ searchParams }: IncidentsPageProps
         </CardHeader>
         <CardContent>
           {incidents.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No incidents reported yet.
-            </div>
+            <EmptyIncidents />
           ) : (
             <div className="space-y-4">
               {incidents.map((item) => (

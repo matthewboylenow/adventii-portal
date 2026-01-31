@@ -2,13 +2,14 @@ import { getCurrentUser, canCreateWorkOrders } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { workOrders } from '@/lib/db/schema';
-import { eq, desc, and, sql } from 'drizzle-orm';
+import { eq, desc, and, sql, ilike, or } from 'drizzle-orm';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { formatShortDate, formatTime, getVenueLabel, getEventTypeLabel } from '@/lib/utils';
-import { Plus, FileText, Calendar } from 'lucide-react';
+import { Plus, Calendar } from 'lucide-react';
+import { EmptyWorkOrders, EmptySearchResults, SearchInput } from '@/components/ui';
 
 interface WorkOrdersPageProps {
   searchParams: Promise<{
@@ -35,6 +36,15 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
 
   if (params.status && params.status !== 'all') {
     conditions.push(eq(workOrders.status, params.status as typeof workOrders.status.enumValues[number]));
+  }
+
+  if (params.search) {
+    conditions.push(
+      or(
+        ilike(workOrders.eventName, `%${params.search}%`),
+        ilike(workOrders.venue, `%${params.search}%`)
+      )!
+    );
   }
 
   // Get work orders with pagination
@@ -113,9 +123,14 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
         )}
       </div>
 
-      {/* Filters */}
+      {/* Search and Filters */}
       <Card>
-        <CardContent className="p-4">
+        <CardContent className="p-4 space-y-4">
+          <SearchInput
+            placeholder="Search work orders..."
+            paramName="search"
+            className="max-w-md"
+          />
           <div className="flex flex-wrap gap-2">
             <Link
               href="/work-orders"
@@ -156,20 +171,14 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
       <Card>
         <CardContent className="p-0">
           {workOrdersList.length === 0 ? (
-            <div className="p-12 text-center">
-              <FileText className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900">No work orders</h3>
-              <p className="text-gray-500 mt-1">
-                {params.status
-                  ? 'No work orders match your filter.'
-                  : 'Get started by creating your first work order.'}
-              </p>
-              {showCreateButton && !params.status && (
-                <Link href="/work-orders/new">
-                  <Button className="mt-4">Create Work Order</Button>
-                </Link>
-              )}
-            </div>
+            params.status || params.search ? (
+              <EmptySearchResults
+                query={params.search || params.status}
+                onClear={undefined}
+              />
+            ) : (
+              <EmptyWorkOrders canCreate={showCreateButton} />
+            )
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -248,6 +257,7 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
             <Link
               href={`/work-orders?${new URLSearchParams({
                 ...(params.status && { status: params.status }),
+                ...(params.search && { search: params.search }),
                 page: String(page - 1),
               })}`}
             >
@@ -263,6 +273,7 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
             <Link
               href={`/work-orders?${new URLSearchParams({
                 ...(params.status && { status: params.status }),
+                ...(params.search && { search: params.search }),
                 page: String(page + 1),
               })}`}
             >

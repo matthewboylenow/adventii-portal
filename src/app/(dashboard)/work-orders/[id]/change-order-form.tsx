@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, useToast } from '@/components/ui';
 import { createChangeOrder } from '@/app/actions/change-orders';
 import { X, Copy, ExternalLink } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
@@ -33,6 +33,7 @@ export function ChangeOrderForm({
   onClose,
 }: ChangeOrderFormProps) {
   const router = useRouter();
+  const toast = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [approvalResult, setApprovalResult] = useState<{ token: string } | null>(null);
@@ -74,6 +75,7 @@ export function ChangeOrderForm({
     if (approvalResult) {
       const url = `${window.location.origin}/approve/${approvalResult.token}`;
       navigator.clipboard.writeText(url);
+      toast.success('Link copied to clipboard');
     }
   };
 

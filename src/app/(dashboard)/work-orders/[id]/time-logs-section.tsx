@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useOptimistic } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, useToast, ConfirmDialog } from '@/components/ui';
 import { TimeLogForm } from './time-log-form';
 import { deleteTimeLog } from '@/app/actions/time-logs';
 import { formatHours, formatShortDate } from '@/lib/utils';
@@ -43,22 +43,34 @@ export function TimeLogsSection({
   actualHours,
 }: TimeLogsSectionProps) {
   const router = useRouter();
+  const toast = useToast();
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Optimistic updates - immediately hide deleted items
+  const [optimisticLogs, removeOptimisticLog] = useOptimistic(
+    timeLogs,
+    (state, deletedId: string) => state.filter((log) => log.id !== deletedId)
+  );
 
   const canAddTimeLogs = ['draft', 'pending_approval', 'approved', 'in_progress', 'completed'].includes(workOrderStatus);
 
   const handleDelete = async (logId: string) => {
-    if (!confirm('Are you sure you want to delete this time log?')) {
-      return;
-    }
-
     setDeletingId(logId);
+    setConfirmDeleteId(null);
+
+    // Optimistically remove the item immediately
+    removeOptimisticLog(logId);
+
     try {
       await deleteTimeLog(logId);
+      toast.success('Time log deleted');
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete time log');
+      toast.error('Failed to delete time log', err instanceof Error ? err.message : undefined);
+      // On error, router.refresh() will restore the item since optimistic state resets
+      router.refresh();
     } finally {
       setDeletingId(null);
     }
@@ -73,6 +85,17 @@ export function TimeLogsSection({
   };
 
   return (
+    <>
+    <ConfirmDialog
+      open={confirmDeleteId !== null}
+      onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+      title="Delete Time Log"
+      description="Are you sure you want to delete this time log? This action cannot be undone."
+      confirmLabel="Delete"
+      variant="danger"
+      onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+      isLoading={deletingId !== null}
+    />
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
@@ -109,11 +132,20 @@ export function TimeLogsSection({
         )}
 
         {/* Time Logs List */}
-        {timeLogs.length === 0 && !showForm ? (
-          <p className="text-gray-500 text-center py-4">No time logged yet.</p>
+        {optimisticLogs.length === 0 && !showForm ? (
+          <div className="text-center py-6">
+            <Clock className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500 mb-3">No time logged yet</p>
+            {canAddTimeLogs && (
+              <Button size="sm" variant="outline" onClick={() => setShowForm(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Log Time
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="space-y-3">
-            {timeLogs.slice(0, 5).map((log) => (
+            {optimisticLogs.slice(0, 5).map((log) => (
               <div
                 key={log.id}
                 className="flex items-start justify-between p-3 bg-gray-50 rounded-lg"
@@ -146,9 +178,10 @@ export function TimeLogsSection({
                   <Button
                     variant="ghost"
                     size="sm"
-                    onClick={() => handleDelete(log.id)}
+                    onClick={() => setConfirmDeleteId(log.id)}
                     disabled={deletingId === log.id}
                     className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    aria-label="Delete time log"
                   >
                     <Trash2 className="h-4 w-4" />
                   </Button>
@@ -159,5 +192,6 @@ export function TimeLogsSection({
         )}
       </CardContent>
     </Card>
+    </>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Textarea } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Textarea, useToast } from '@/components/ui';
 import { createTimeLog, updateTimeLog, type CreateTimeLogInput } from '@/app/actions/time-logs';
 
 interface WorkOrder {
@@ -42,6 +42,7 @@ export function TimeLogForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const [workOrderId, setWorkOrderId] = useState(defaultWorkOrderId || defaultValues?.id || '');
   const [date, setDate] = useState(defaultValues?.date || new Date().toISOString().split('T')[0]);
@@ -95,13 +96,16 @@ export function TimeLogForm({
 
         if (mode === 'edit' && defaultValues?.id) {
           await updateTimeLog(defaultValues.id, input);
+          toast.success('Time log updated');
         } else {
           await createTimeLog(input);
+          toast.success('Time logged', `${hours} hours logged successfully`);
         }
 
         router.push('/time-logs');
         router.refresh();
       } catch (err) {
+        toast.error('Failed to save time log', err instanceof Error ? err.message : undefined);
         setError(err instanceof Error ? err.message : 'Failed to save time log');
       }
     });

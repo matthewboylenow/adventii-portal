@@ -195,3 +195,64 @@ h1, h2, h3, h4, h5, h6 {
 .animate-pulse {
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
+
+/* Toast Animations */
+@keyframes slideInFromTop {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInFromBottom {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutToRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+[data-state="open"].animate-in {
+  animation: slideInFromBottom 0.3s ease-out;
+}
+
+[data-state="closed"].animate-out {
+  animation: slideOutToRight 0.2s ease-in;
+}
+
+[data-state="closed"].fade-out-80 {
+  animation: fadeOut 0.2s ease-in;
+}
+
+@media (max-width: 640px) {
+  [data-state="open"].animate-in {
+    animation: slideInFromTop 0.3s ease-out;
+  }
+}

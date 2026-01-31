@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { formatShortDate, formatHours, getCategoryLabel } from '@/lib/utils';
 import { Plus, Clock, Pencil, Trash2 } from 'lucide-react';
+import { EmptyTimeLogs } from '@/components/ui';
 import { deleteTimeLog } from '@/app/actions/time-logs';
 
 interface TimeLogsPageProps {
@@ -156,9 +157,7 @@ export default async function TimeLogsPage({ searchParams }: TimeLogsPageProps) 
         </CardHeader>
         <CardContent>
           {logs.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No time logs recorded yet.
-            </div>
+            <EmptyTimeLogs canCreate={true} workOrderId={params.workOrderId} />
           ) : (
             <div className="space-y-3">
               {logs.map((log) => (

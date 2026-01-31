@@ -2,15 +2,24 @@ import { getCurrentUser, isAdventiiUser, canCreateInvoices } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { invoices } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, ilike, or } from 'drizzle-orm';
 import Link from 'next/link';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { formatCurrency, formatShortDate } from '@/lib/utils';
 import { Plus, Receipt, FileText } from 'lucide-react';
+import { EmptyInvoices, SearchInput, EmptySearchResults } from '@/components/ui';
 
-export default async function InvoicesPage() {
+interface InvoicesPageProps {
+  searchParams: Promise<{
+    status?: string;
+    search?: string;
+  }>;
+}
+
+export default async function InvoicesPage({ searchParams }: InvoicesPageProps) {
   const user = await getCurrentUser();
+  const params = await searchParams;
 
   if (!user) {
     redirect('/sign-in');
@@ -19,23 +28,42 @@ export default async function InvoicesPage() {
   const isStaff = isAdventiiUser(user);
   const canCreate = canCreateInvoices(user);
 
+  // Build filters
+  const conditions = [eq(invoices.organizationId, user.organizationId)];
+
+  if (params.status && params.status !== 'all') {
+    conditions.push(eq(invoices.status, params.status as typeof invoices.status.enumValues[number]));
+  }
+
+  if (params.search) {
+    conditions.push(
+      ilike(invoices.invoiceNumber, `%${params.search}%`)
+    );
+  }
+
   // Get invoices
   const allInvoices = await db
     .select()
     .from(invoices)
-    .where(eq(invoices.organizationId, user.organizationId))
+    .where(and(...conditions))
     .orderBy(desc(invoices.invoiceDate));
 
-  // Calculate summary stats
-  const totalOutstanding = allInvoices
+  // Get all invoices for stats (unfiltered)
+  const allInvoicesForStats = await db
+    .select()
+    .from(invoices)
+    .where(eq(invoices.organizationId, user.organizationId));
+
+  // Calculate summary stats (from all invoices, not filtered)
+  const totalOutstanding = allInvoicesForStats
     .filter((inv) => ['sent', 'past_due'].includes(inv.status))
     .reduce((sum, inv) => sum + parseFloat(inv.amountDue), 0);
 
-  const totalPaid = allInvoices
+  const totalPaid = allInvoicesForStats
     .filter((inv) => inv.status === 'paid')
     .reduce((sum, inv) => sum + parseFloat(inv.total), 0);
 
-  const draftCount = allInvoices.filter((inv) => inv.status === 'draft').length;
+  const draftCount = allInvoicesForStats.filter((inv) => inv.status === 'draft').length;
 
   return (
     <div className="space-y-6">
@@ -104,23 +132,66 @@ export default async function InvoicesPage() {
         </Card>
       </div>
 
+      {/* Search and Filters */}
+      <Card>
+        <CardContent className="p-4 space-y-4">
+          <SearchInput
+            placeholder="Search by invoice number..."
+            paramName="search"
+            className="max-w-md"
+          />
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/invoices"
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                !params.status || params.status === 'all'
+                  ? 'bg-brand-purple text-white'
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+            >
+              All
+            </Link>
+            {[
+              { value: 'draft', label: 'Draft' },
+              { value: 'sent', label: 'Sent' },
+              { value: 'past_due', label: 'Past Due' },
+              { value: 'paid', label: 'Paid' },
+            ].map((status) => (
+              <Link
+                key={status.value}
+                href={`/invoices?status=${status.value}${params.search ? `&search=${params.search}` : ''}`}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  params.status === status.value
+                    ? 'bg-brand-purple text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
+              >
+                {status.label}
+              </Link>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Invoices List */}
       <Card>
         <CardHeader>
-          <CardTitle>All Invoices</CardTitle>
+          <CardTitle>
+            {params.status || params.search ? 'Filtered Invoices' : 'All Invoices'}
+            {allInvoices.length > 0 && (
+              <span className="ml-2 text-sm font-normal text-gray-500">
+                ({allInvoices.length})
+              </span>
+            )}
+          </CardTitle>
         </CardHeader>
         <CardContent>
           {allInvoices.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No invoices yet.
-              {canCreate && (
-                <p className="mt-2">
-                  <Link href="/invoices/new" className="text-brand-purple hover:underline">
-                    Create your first invoice
-                  </Link>
-                </p>
-              )}
-            </div>
+            params.status || params.search ? (
+              <EmptySearchResults query={params.search || params.status} />
+            ) : (
+              <EmptyInvoices canCreate={canCreate} />
+            )
           ) : (
             <div className="space-y-3">
               {allInvoices.map((invoice) => (

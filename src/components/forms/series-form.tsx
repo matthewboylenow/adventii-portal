@@ -13,6 +13,7 @@ import {
   CardFooter,
   CardHeader,
   CardTitle,
+  useToast,
 } from '@/components/ui';
 import { useTransition } from 'react';
 import { createSeries } from '@/app/actions/series';
@@ -83,6 +84,7 @@ interface SeriesFormProps {
 export function SeriesForm({ services, staff, approvers }: SeriesFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
 
   const {
     register,
@@ -173,11 +175,12 @@ export function SeriesForm({ services, staff, approvers }: SeriesFormProps) {
       try {
         const result = await createSeries(data);
         if (result.success) {
+          toast.success('Series created', `${fields.length} work order${fields.length !== 1 ? 's' : ''} created successfully`);
           router.push('/work-orders');
         }
       } catch (error) {
         console.error('Error creating series:', error);
-        alert(error instanceof Error ? error.message : 'Failed to create series');
+        toast.error('Failed to create series', error instanceof Error ? error.message : undefined);
       }
     });
   };

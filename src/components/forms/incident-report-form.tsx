@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Textarea } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Textarea, useToast } from '@/components/ui';
 import { createIncidentReport, updateIncidentReport, type CreateIncidentReportInput } from '@/app/actions/incident-reports';
 
 interface WorkOrder {
@@ -57,6 +57,7 @@ export function IncidentReportForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const [workOrderId, setWorkOrderId] = useState(defaultWorkOrderId || '');
   const [incidentType, setIncidentType] = useState<CreateIncidentReportInput['incidentType']>(
@@ -102,13 +103,16 @@ export function IncidentReportForm({
 
         if (mode === 'edit' && defaultValues?.id) {
           await updateIncidentReport(defaultValues.id, input);
+          toast.success('Report updated', 'Incident report has been updated');
         } else {
           await createIncidentReport(input);
+          toast.success('Report created', 'Incident report has been submitted');
         }
 
         router.push('/incidents');
         router.refresh();
       } catch (err) {
+        toast.error('Failed to save report', err instanceof Error ? err.message : undefined);
         setError(err instanceof Error ? err.message : 'Failed to save incident report');
       }
     });

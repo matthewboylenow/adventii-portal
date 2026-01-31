@@ -12,6 +12,9 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
 export const Input = forwardRef<HTMLInputElement, InputProps>(
   ({ className, label, error, helperText, id, type = 'text', ...props }, ref) => {
     const inputId = id || label?.toLowerCase().replace(/\s/g, '-');
+    const errorId = error ? `${inputId}-error` : undefined;
+    const helperId = helperText && !error ? `${inputId}-helper` : undefined;
+    const describedBy = errorId || helperId || undefined;
 
     return (
       <div className="w-full">
@@ -27,6 +30,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           ref={ref}
           type={type}
           id={inputId}
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={describedBy}
           className={cn(
             'w-full px-3 py-2 border rounded-lg transition-colors duration-200',
             'focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent',
@@ -36,9 +41,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
           )}
           {...props}
         />
-        {error && <p className="mt-1 text-sm text-error-600">{error}</p>}
+        {error && <p id={errorId} className="mt-1 text-sm text-error-600" role="alert">{error}</p>}
         {helperText && !error && (
-          <p className="mt-1 text-sm text-gray-500">{helperText}</p>
+          <p id={helperId} className="mt-1 text-sm text-gray-500">{helperText}</p>
         )}
       </div>
     );

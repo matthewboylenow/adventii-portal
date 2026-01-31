@@ -1,11 +1,11 @@
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, isAdventiiUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { workOrders, invoices } from '@/lib/db/schema';
-import { eq, sql, desc } from 'drizzle-orm';
+import { workOrders, invoices, timeLogs } from '@/lib/db/schema';
+import { eq, sql, desc, and, gte, lte } from 'drizzle-orm';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
-import { formatCurrency, formatShortDate, formatTime } from '@/lib/utils';
+import { formatCurrency, formatShortDate, formatTime, formatHours } from '@/lib/utils';
 import Link from 'next/link';
 import {
   FileText,
@@ -14,6 +14,8 @@ import {
   CheckCircle,
   AlertCircle,
   ArrowRight,
+  Calendar,
+  TrendingUp,
 } from 'lucide-react';
 
 export default async function DashboardPage() {
@@ -60,7 +62,55 @@ export default async function DashboardPage() {
     .orderBy(desc(invoices.invoiceDate))
     .limit(5);
 
-  const isStaff = ['adventii_admin', 'adventii_staff'].includes(user.role);
+  const isStaff = isAdventiiUser(user);
+
+  // Get upcoming events (next 7 days)
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const nextWeek = new Date(today);
+  nextWeek.setDate(nextWeek.getDate() + 7);
+
+  const upcomingEvents = await db
+    .select({
+      id: workOrders.id,
+      eventName: workOrders.eventName,
+      eventDate: workOrders.eventDate,
+      startTime: workOrders.startTime,
+      status: workOrders.status,
+      venue: workOrders.venue,
+    })
+    .from(workOrders)
+    .where(
+      and(
+        eq(workOrders.organizationId, user.organizationId),
+        gte(workOrders.eventDate, today),
+        lte(workOrders.eventDate, nextWeek)
+      )
+    )
+    .orderBy(workOrders.eventDate)
+    .limit(5);
+
+  // Get this week's hours (for staff)
+  let weeklyHours = '0';
+  if (isStaff) {
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay());
+
+    const [hoursResult] = await db
+      .select({
+        totalHours: sql<string>`coalesce(sum(${timeLogs.hours}::numeric), 0)::text`,
+      })
+      .from(timeLogs)
+      .innerJoin(workOrders, eq(timeLogs.workOrderId, workOrders.id))
+      .where(
+        and(
+          eq(workOrders.organizationId, user.organizationId),
+          gte(timeLogs.date, startOfWeek)
+        )
+      );
+
+    weeklyHours = hoursResult?.totalHours || '0';
+  }
 
   return (
     <div className="space-y-6">
@@ -102,19 +152,35 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-green-50 rounded-lg">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+        {isStaff ? (
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-blue-50 rounded-lg">
+                  <Clock className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Hours This Week</p>
+                  <p className="text-2xl font-bold">{formatHours(weeklyHours)}</p>
+                </div>
               </div>
-              <div>
-                <p className="text-sm text-gray-500">Completed (30d)</p>
-                <p className="text-2xl font-bold">{stats?.completedThisMonth || 0}</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-green-50 rounded-lg">
+                  <CheckCircle className="h-6 w-6 text-green-600" />
+                </div>
+                <div>
+                  <p className="text-sm text-gray-500">Completed (30d)</p>
+                  <p className="text-2xl font-bold">{stats?.completedThisMonth || 0}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardContent className="p-6">
@@ -132,6 +198,71 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Upcoming Events */}
+      {upcomingEvents.length > 0 && (
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5 text-brand-purple" />
+              Upcoming Events
+            </CardTitle>
+            <Link
+              href="/work-orders"
+              className="text-sm text-brand-purple hover:text-brand-purple-light flex items-center gap-1"
+            >
+              View all <ArrowRight className="h-4 w-4" />
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-3">
+              {upcomingEvents.map((event) => {
+                const eventDate = new Date(event.eventDate);
+                const isToday = eventDate.toDateString() === today.toDateString();
+                const isTomorrow = eventDate.toDateString() === new Date(today.getTime() + 86400000).toDateString();
+
+                return (
+                  <Link
+                    key={event.id}
+                    href={`/work-orders/${event.id}`}
+                    className="flex items-center gap-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <div className="flex flex-col items-center justify-center w-14 h-14 bg-white rounded-lg border border-gray-200">
+                      <span className="text-xs text-gray-500 uppercase">
+                        {eventDate.toLocaleDateString('en-US', { weekday: 'short' })}
+                      </span>
+                      <span className="text-lg font-bold text-gray-900">
+                        {eventDate.getDate()}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-gray-900 truncate">
+                          {event.eventName}
+                        </p>
+                        {isToday && (
+                          <span className="text-xs bg-brand-purple text-white px-2 py-0.5 rounded-full">
+                            Today
+                          </span>
+                        )}
+                        {isTomorrow && (
+                          <span className="text-xs bg-blue-500 text-white px-2 py-0.5 rounded-full">
+                            Tomorrow
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-gray-500">
+                        {event.startTime && formatTime(event.startTime)}
+                      </p>
+                    </div>
+                    <StatusBadge status={event.status} />
+                  </Link>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Recent Activity */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

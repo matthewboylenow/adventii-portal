@@ -1,7 +1,7 @@
 'use client';
 
-import { useTransition } from 'react';
-import { Button } from '@/components/ui/button';
+import { useState, useTransition } from 'react';
+import { Button, useToast, ConfirmDialog } from '@/components/ui';
 import { submitForApproval, revertToDraft } from '@/app/actions/work-orders';
 import { Send, Undo2 } from 'lucide-react';
 
@@ -17,6 +17,8 @@ interface WorkOrderActionsProps {
 
 export function WorkOrderActions({ workOrder, isStaff }: WorkOrderActionsProps) {
   const [isPending, startTransition] = useTransition();
+  const toast = useToast();
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   if (!isStaff) return null;
 
@@ -25,42 +27,54 @@ export function WorkOrderActions({ workOrder, isStaff }: WorkOrderActionsProps) 
       try {
         const result = await submitForApproval(workOrder.id);
         if (result.success) {
-          // Page will revalidate and show the approval link
+          toast.success('Sign-off requested', 'An approval link has been generated');
         }
       } catch (error) {
-        alert(error instanceof Error ? error.message : 'Failed to request sign-off');
+        toast.error('Failed to request sign-off', error instanceof Error ? error.message : undefined);
       }
     });
   };
 
   const handleCancelSignoff = () => {
-    if (!confirm('Are you sure you want to cancel the sign-off request? The approval link will be invalidated.')) {
-      return;
-    }
     startTransition(async () => {
       try {
         await revertToDraft(workOrder.id);
+        toast.success('Sign-off request cancelled');
       } catch (error) {
-        alert(error instanceof Error ? error.message : 'Failed to cancel');
+        toast.error('Failed to cancel', error instanceof Error ? error.message : undefined);
+      } finally {
+        setShowCancelConfirm(false);
       }
     });
   };
 
   return (
-    <div className="flex flex-wrap gap-3">
-      {['draft', 'in_progress'].includes(workOrder.status) && (
-        <Button onClick={handleRequestSignoff} isLoading={isPending}>
-          <Send className="h-4 w-4 mr-2" />
-          Request Sign-off
-        </Button>
-      )}
+    <>
+      <ConfirmDialog
+        open={showCancelConfirm}
+        onOpenChange={setShowCancelConfirm}
+        title="Cancel Sign-off Request"
+        description="Are you sure you want to cancel the sign-off request? The approval link will be invalidated."
+        confirmLabel="Cancel Request"
+        variant="warning"
+        onConfirm={handleCancelSignoff}
+        isLoading={isPending}
+      />
+      <div className="flex flex-wrap gap-3">
+        {['draft', 'in_progress'].includes(workOrder.status) && (
+          <Button onClick={handleRequestSignoff} isLoading={isPending}>
+            <Send className="h-4 w-4 mr-2" />
+            Request Sign-off
+          </Button>
+        )}
 
-      {workOrder.status === 'pending_approval' && (
-        <Button variant="outline" onClick={handleCancelSignoff} isLoading={isPending}>
-          <Undo2 className="h-4 w-4 mr-2" />
-          Cancel Sign-off Request
-        </Button>
-      )}
-    </div>
+        {workOrder.status === 'pending_approval' && (
+          <Button variant="outline" onClick={() => setShowCancelConfirm(true)} isLoading={isPending}>
+            <Undo2 className="h-4 w-4 mr-2" />
+            Cancel Sign-off Request
+          </Button>
+        )}
+      </div>
+    </>
   );
 }

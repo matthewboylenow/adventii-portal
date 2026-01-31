@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Textarea } from '@/components/ui';
+import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Textarea, useToast } from '@/components/ui';
 import { createInvoice, type CreateInvoiceInput } from '@/app/actions/invoices';
 import { formatCurrency } from '@/lib/utils';
 import { Plus, Trash2, CheckCircle } from 'lucide-react';
@@ -39,6 +39,7 @@ export function InvoiceForm({
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
 
   const [periodStart, setPeriodStart] = useState('');
   const [periodEnd, setPeriodEnd] = useState('');
@@ -166,9 +167,11 @@ export function InvoiceForm({
         const result = await createInvoice(input);
 
         if (result.success) {
+          toast.success('Invoice created', `Invoice #${result.invoice.invoiceNumber} has been created`);
           router.push(`/invoices/${result.invoice.id}`);
         }
       } catch (err) {
+        toast.error('Failed to create invoice', err instanceof Error ? err.message : undefined);
         setError(err instanceof Error ? err.message : 'Failed to create invoice');
       }
     });

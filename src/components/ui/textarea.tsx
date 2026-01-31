@@ -12,6 +12,9 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className, label, error, helperText, id, ...props }, ref) => {
     const textareaId = id || label?.toLowerCase().replace(/\s/g, '-');
+    const errorId = error ? `${textareaId}-error` : undefined;
+    const helperId = helperText && !error ? `${textareaId}-helper` : undefined;
+    const describedBy = errorId || helperId || undefined;
 
     return (
       <div className="w-full">
@@ -26,6 +29,8 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         <textarea
           ref={ref}
           id={textareaId}
+          aria-invalid={error ? 'true' : undefined}
+          aria-describedby={describedBy}
           className={cn(
             'w-full px-3 py-2 border rounded-lg transition-colors duration-200',
             'focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent',
@@ -35,9 +40,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
           )}
           {...props}
         />
-        {error && <p className="mt-1 text-sm text-error-600">{error}</p>}
+        {error && <p id={errorId} className="mt-1 text-sm text-error-600" role="alert">{error}</p>}
         {helperText && !error && (
-          <p className="mt-1 text-sm text-gray-500">{helperText}</p>
+          <p id={helperId} className="mt-1 text-sm text-gray-500">{helperText}</p>
         )}
       </div>
     );

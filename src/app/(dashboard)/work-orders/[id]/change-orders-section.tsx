@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
+import { useState, useOptimistic } from 'react';
+import { Button, Card, CardContent, CardHeader, CardTitle, useToast, ConfirmDialog } from '@/components/ui';
 import { ChangeOrderForm } from './change-order-form';
 import { deleteChangeOrder } from '@/app/actions/change-orders';
 import { formatCurrency, formatDateTime, formatHours, getChangeOrderReasonLabel } from '@/lib/utils';
@@ -67,8 +67,16 @@ export function ChangeOrdersSection({
   workOrderStatus,
 }: ChangeOrdersSectionProps) {
   const router = useRouter();
+  const toast = useToast();
   const [showForm, setShowForm] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+
+  // Optimistic updates - immediately hide deleted items
+  const [optimisticOrders, removeOptimisticOrder] = useOptimistic(
+    changeOrders,
+    (state, deletedId: string) => state.filter((co) => co.id !== deletedId)
+  );
 
   const canCreateChangeOrder =
     isStaff && ['draft', 'pending_approval', 'approved', 'in_progress', 'completed'].includes(workOrderStatus);
@@ -82,16 +90,19 @@ export function ChangeOrdersSection({
   };
 
   const handleDelete = async (changeOrderId: string) => {
-    if (!confirm('Are you sure you want to delete this change order?')) {
-      return;
-    }
-
     setDeletingId(changeOrderId);
+    setConfirmDeleteId(null);
+
+    // Optimistically remove the item immediately
+    removeOptimisticOrder(changeOrderId);
+
     try {
       await deleteChangeOrder(changeOrderId);
+      toast.success('Change order deleted');
       router.refresh();
     } catch (err) {
-      alert(err instanceof Error ? err.message : 'Failed to delete change order');
+      toast.error('Failed to delete change order', err instanceof Error ? err.message : undefined);
+      router.refresh();
     } finally {
       setDeletingId(null);
     }
@@ -100,10 +111,11 @@ export function ChangeOrdersSection({
   const copyApprovalLink = (token: string) => {
     const url = `${window.location.origin}/approve/${token}`;
     navigator.clipboard.writeText(url);
+    toast.success('Link copied to clipboard');
   };
 
-  // Calculate total additional hours from approved change orders
-  const totalApprovedAdditionalHours = changeOrders
+  // Calculate total additional hours from approved change orders (use optimistic state)
+  const totalApprovedAdditionalHours = optimisticOrders
     .filter((co) => co.isApproved)
     .reduce((sum, co) => sum + parseFloat(co.additionalHours), 0);
 
@@ -111,7 +123,18 @@ export function ChangeOrdersSection({
     parseFloat(actualHours) > parseFloat(estimatedMax) + totalApprovedAdditionalHours;
 
   return (
-    <Card className={hasOverage && changeOrders.length === 0 ? 'border-yellow-300' : ''}>
+    <>
+    <ConfirmDialog
+      open={confirmDeleteId !== null}
+      onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+      title="Delete Change Order"
+      description="Are you sure you want to delete this change order? This action cannot be undone."
+      confirmLabel="Delete"
+      variant="danger"
+      onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
+      isLoading={deletingId !== null}
+    />
+    <Card className={hasOverage && optimisticOrders.length === 0 ? 'border-yellow-300' : ''}>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
           <AlertTriangle
@@ -120,9 +143,9 @@ export function ChangeOrdersSection({
             }`}
           />
           Change Orders
-          {changeOrders.length > 0 && (
+          {optimisticOrders.length > 0 && (
             <span className="text-sm font-normal text-gray-500">
-              ({changeOrders.length})
+              ({optimisticOrders.length})
             </span>
           )}
         </CardTitle>
@@ -135,7 +158,7 @@ export function ChangeOrdersSection({
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Overage Warning */}
-        {hasOverage && changeOrders.filter((co) => !co.isApproved).length === 0 && (
+        {hasOverage && optimisticOrders.filter((co) => !co.isApproved).length === 0 && (
           <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-sm text-yellow-800">
               <strong>Hours Overage Detected:</strong> Actual hours (
@@ -161,11 +184,15 @@ export function ChangeOrdersSection({
         )}
 
         {/* Existing Change Orders */}
-        {changeOrders.length === 0 && !showForm ? (
-          <p className="text-gray-500 text-center py-4">No change orders.</p>
+        {optimisticOrders.length === 0 && !showForm ? (
+          <div className="text-center py-6">
+            <AlertTriangle className="h-10 w-10 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No change orders</p>
+            <p className="text-sm text-gray-400 mt-1">Change orders are used when work exceeds the estimate</p>
+          </div>
         ) : (
           <div className="space-y-3">
-            {changeOrders.map((co) => {
+            {optimisticOrders.map((co) => {
               const approval = getApprovalForChangeOrder(co.id);
               const token = getTokenForChangeOrder(co.id);
 
@@ -280,9 +307,10 @@ export function ChangeOrdersSection({
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(co.id)}
+                        onClick={() => setConfirmDeleteId(co.id)}
                         disabled={deletingId === co.id}
                         className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                        aria-label="Delete change order"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -295,7 +323,7 @@ export function ChangeOrdersSection({
         )}
 
         {/* Summary */}
-        {changeOrders.length > 0 && (
+        {optimisticOrders.length > 0 && (
           <div className="pt-4 border-t border-gray-200">
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">
@@ -315,5 +343,6 @@ export function ChangeOrdersSection({
         )}
       </CardContent>
     </Card>
+    </>
   );
 }
