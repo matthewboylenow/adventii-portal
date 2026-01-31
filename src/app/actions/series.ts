@@ -84,15 +84,24 @@ export async function createSeries(data: CreateSeriesInput) {
   const createdWorkOrders: string[] = [];
 
   for (const eventDate of validatedData.eventDates) {
+    // Combine date with time if provided
+    const baseDate = eventDate.date;
+    const startDateTime = eventDate.startTime
+      ? new Date(`${baseDate}T${eventDate.startTime}:00`)
+      : null;
+    const endDateTime = eventDate.endTime
+      ? new Date(`${baseDate}T${eventDate.endTime}:00`)
+      : null;
+
     const [workOrder] = await db
       .insert(workOrders)
       .values({
         organizationId: user.organizationId,
         seriesId: series.id,
         eventName: validatedData.eventName,
-        eventDate: new Date(eventDate.date),
-        startTime: eventDate.startTime ? new Date(eventDate.startTime) : null,
-        endTime: eventDate.endTime ? new Date(eventDate.endTime) : null,
+        eventDate: new Date(baseDate),
+        startTime: startDateTime,
+        endTime: endDateTime,
         venue: validatedData.venue,
         venueOther: validatedData.venue === 'other' ? validatedData.venueOther : null,
         eventType: validatedData.eventType,
