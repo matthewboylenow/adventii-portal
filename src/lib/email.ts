@@ -5,11 +5,12 @@ const mailjetSecretKey = process.env.MAILJET_SECRET_KEY;
 
 let mailjetClient: Mailjet | null = null;
 
-function getMailjet(): Mailjet {
+function getMailjet(): Mailjet | null {
+  if (!mailjetApiKey || !mailjetSecretKey) {
+    console.warn('Mailjet API keys are not configured - emails will be skipped');
+    return null;
+  }
   if (!mailjetClient) {
-    if (!mailjetApiKey || !mailjetSecretKey) {
-      throw new Error('Mailjet API keys are not configured');
-    }
     mailjetClient = new Mailjet({
       apiKey: mailjetApiKey,
       apiSecret: mailjetSecretKey,
@@ -28,6 +29,11 @@ interface SendEmailOptions {
 
 export async function sendEmail(options: SendEmailOptions) {
   const mailjet = getMailjet();
+
+  if (!mailjet) {
+    console.warn('Skipping email send - Mailjet not configured');
+    return null;
+  }
 
   const result = await mailjet.post('send', { version: 'v3.1' }).request({
     Messages: [
