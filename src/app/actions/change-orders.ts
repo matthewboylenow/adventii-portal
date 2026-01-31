@@ -1,13 +1,11 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { changeOrders, workOrders, approvalTokens, approvals, users } from '@/lib/db/schema';
+import { changeOrders, workOrders, approvalTokens, approvals } from '@/lib/db/schema';
 import { requireAdventiiStaff, requireUser } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
-import { sendApprovalRequestEmail } from '@/lib/email';
-import { formatDate } from '@/lib/utils';
 
 const createChangeOrderSchema = z.object({
   workOrderId: z.string().uuid(),
@@ -78,29 +76,8 @@ export async function createChangeOrder(data: CreateChangeOrderInput) {
     expiresAt,
   });
 
-  // Send email to approver if configured
-  if (workOrder.authorizedApproverId) {
-    const [approver] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, workOrder.authorizedApproverId))
-      .limit(1);
-
-    if (approver?.email) {
-      try {
-        await sendApprovalRequestEmail({
-          workOrderId: workOrder.id,
-          eventName: `Change Order: ${workOrder.eventName}`,
-          eventDate: formatDate(workOrder.eventDate),
-          approverEmail: approver.email,
-          approverName: `${approver.firstName} ${approver.lastName}`,
-          approvalToken: token,
-        });
-      } catch (emailError) {
-        console.error('Failed to send change order approval email:', emailError);
-      }
-    }
-  }
+  // Note: Approval is done in-person via iPad/phone signature, not email
+  // The approval token/link is shared manually by staff
 
   revalidatePath(`/work-orders/${validatedData.workOrderId}`);
 

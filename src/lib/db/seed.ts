@@ -58,7 +58,7 @@ async function seed() {
       canPay: true,
       hasPortalAccess: true,
       isApprover: true,
-      email: 'kent@sainthelen.org',
+      email: 'kdiamond@sainthelen.org',
     },
     {
       firstName: 'Thomas',
@@ -68,7 +68,7 @@ async function seed() {
       canPay: false,
       hasPortalAccess: true,
       isApprover: true,
-      email: 'pastor@sainthelen.org',
+      email: 'tnydegger@sainthelen.org',
     },
 
     // Approvers (no login - sign via iPad)

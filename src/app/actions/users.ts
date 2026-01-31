@@ -9,6 +9,7 @@ import { getCurrentUser, isAdventiiUser } from '@/lib/auth';
 interface UpdateUserInput {
   firstName?: string;
   lastName?: string;
+  email?: string | null;
   title?: string | null;
   phone?: string | null;
   role?: 'adventii_admin' | 'adventii_staff' | 'client_admin' | 'client_approver' | 'client_viewer';
@@ -62,6 +63,7 @@ export async function updateUser(userId: string, input: UpdateUserInput) {
 
   if (input.firstName !== undefined) updateData.firstName = input.firstName;
   if (input.lastName !== undefined) updateData.lastName = input.lastName;
+  if (input.email !== undefined) updateData.email = input.email;
   if (input.title !== undefined) updateData.title = input.title;
   if (input.phone !== undefined) updateData.phone = input.phone;
   if (input.role !== undefined) updateData.role = input.role;

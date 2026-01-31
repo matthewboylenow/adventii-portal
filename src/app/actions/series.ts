@@ -1,14 +1,12 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { workOrders, workOrderSeries, organizations, approvalTokens, users } from '@/lib/db/schema';
+import { workOrders, workOrderSeries, organizations, approvalTokens } from '@/lib/db/schema';
 import { requireAdventiiStaff, requireUser } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { eq, and, desc, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
-import { sendApprovalRequestEmail } from '@/lib/email';
-import { formatDate } from '@/lib/utils';
 
 const eventDateSchema = z.object({
   date: z.string().min(1),
@@ -215,31 +213,8 @@ export async function submitSeriesForApproval(seriesId: string) {
     tokens.push({ workOrderId: wo.id, token });
   }
 
-  // Send email to approver if configured (first work order's approver)
-  const firstWO = draftWorkOrders[0];
-  if (firstWO.authorizedApproverId) {
-    const [approver] = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, firstWO.authorizedApproverId))
-      .limit(1);
-
-    if (approver?.email && tokens.length > 0) {
-      try {
-        // Send one email for the series
-        await sendApprovalRequestEmail({
-          workOrderId: firstWO.id,
-          eventName: `${series.name} (${draftWorkOrders.length} events)`,
-          eventDate: formatDate(firstWO.eventDate),
-          approverEmail: approver.email,
-          approverName: `${approver.firstName} ${approver.lastName}`,
-          approvalToken: tokens[0].token, // Link to first work order
-        });
-      } catch (emailError) {
-        console.error('Failed to send approval request email:', emailError);
-      }
-    }
-  }
+  // Note: Approval is done in-person via iPad/phone signature, not email
+  // The approval token/link is shared manually by staff
 
   revalidatePath('/work-orders');
   revalidatePath('/series');

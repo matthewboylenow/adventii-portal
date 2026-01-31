@@ -31,6 +31,7 @@ export function StaffEditForm({ user, isAdventiiAdmin }: StaffEditFormProps) {
 
   const [firstName, setFirstName] = useState(user.firstName);
   const [lastName, setLastName] = useState(user.lastName);
+  const [email, setEmail] = useState(user.email || '');
   const [title, setTitle] = useState(user.title || '');
   const [phone, setPhone] = useState(user.phone || '');
   const [role, setRole] = useState(user.role);
@@ -48,6 +49,7 @@ export function StaffEditForm({ user, isAdventiiAdmin }: StaffEditFormProps) {
         await updateUser(user.id, {
           firstName,
           lastName,
+          email: email || null,
           title: title || null,
           phone: phone || null,
           role: role as 'adventii_admin' | 'adventii_staff' | 'client_admin' | 'client_approver' | 'client_viewer',
@@ -115,9 +117,9 @@ export function StaffEditForm({ user, isAdventiiAdmin }: StaffEditFormProps) {
           <Input
             label="Email"
             type="email"
-            value={user.email || ''}
-            disabled
-            className="bg-gray-100"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="email@example.com"
           />
           <Input
             label="Title / Position"
