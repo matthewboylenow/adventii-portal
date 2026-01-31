@@ -61,7 +61,7 @@ export function Sidebar({ user }: SidebarProps) {
       <div className="flex h-16 items-center px-6 border-b border-gray-800">
         <Link href="/" className="flex items-center gap-2">
           <span className="font-[Audiowide] text-xl text-white tracking-wider">
-            ADVENTII
+            ADVENTII MEDIA
           </span>
         </Link>
       </div>

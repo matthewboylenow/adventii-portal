@@ -3,7 +3,7 @@ import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: 'Adventii Client Portal',
+  title: 'Adventii Media Client Portal',
   description: 'Work orders, approvals, invoicing and payments for A/V services',
 };
 
