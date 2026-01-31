@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 import { WorkOrderActions } from './work-order-actions';
 import { ChangeOrdersSection } from './change-orders-section';
+import { TimeLogsSection } from './time-logs-section';
 
 interface WorkOrderPageProps {
   params: Promise<{ id: string }>;
@@ -426,43 +427,13 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
 
       {/* Time Logs */}
       {isStaff && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Time Logs</CardTitle>
-            <div className="flex gap-2">
-              {['approved', 'in_progress', 'completed'].includes(workOrder.status) && (
-                <Link href={`/time-logs/new?workOrderId=${workOrder.id}`}>
-                  <Button size="sm">
-                    <Clock className="h-4 w-4 mr-2" />
-                    Add Time
-                  </Button>
-                </Link>
-              )}
-              {workOrderTimeLogs.length > 0 && (
-                <Link href={`/time-logs?workOrderId=${workOrder.id}`}>
-                  <Button variant="outline" size="sm">View All</Button>
-                </Link>
-              )}
-            </div>
-          </CardHeader>
-          <CardContent>
-            {workOrderTimeLogs.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">No time logged yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {workOrderTimeLogs.slice(0, 5).map((log) => (
-                  <div key={log.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div>
-                      <p className="font-medium">{formatHours(log.hours)}</p>
-                      <p className="text-sm text-gray-500">{formatShortDate(log.date)}</p>
-                    </div>
-                    <span className="text-sm text-gray-600">{log.category}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <TimeLogsSection
+          workOrderId={workOrder.id}
+          eventName={workOrder.eventName}
+          timeLogs={workOrderTimeLogs}
+          workOrderStatus={workOrder.status}
+          actualHours={workOrder.actualHours || '0'}
+        />
       )}
 
       {/* Change Orders */}

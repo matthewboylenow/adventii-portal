@@ -313,3 +313,42 @@ export async function startWorkOrder(workOrderId: string) {
 
   return { success: true };
 }
+
+export async function revertToDraft(workOrderId: string) {
+  const user = await requireAdventiiStaff();
+
+  const [existingWO] = await db
+    .select()
+    .from(workOrders)
+    .where(
+      and(
+        eq(workOrders.id, workOrderId),
+        eq(workOrders.organizationId, user.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!existingWO) {
+    throw new Error('Work order not found');
+  }
+
+  if (existingWO.status !== 'pending_approval') {
+    throw new Error('Can only revert pending approval work orders to draft');
+  }
+
+  // Delete the approval token
+  await db
+    .delete(approvalTokens)
+    .where(eq(approvalTokens.workOrderId, workOrderId));
+
+  // Update status back to draft
+  await db
+    .update(workOrders)
+    .set({ status: 'draft', updatedAt: new Date() })
+    .where(eq(workOrders.id, workOrderId));
+
+  revalidatePath('/work-orders');
+  revalidatePath(`/work-orders/${workOrderId}`);
+
+  return { success: true };
+}

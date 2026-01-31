@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from 'react';
 import { Button } from '@/components/ui/button';
-import { submitForApproval, startWorkOrder, markWorkOrderComplete } from '@/app/actions/work-orders';
-import { Send, Play, CheckCircle } from 'lucide-react';
+import { submitForApproval, startWorkOrder, markWorkOrderComplete, revertToDraft } from '@/app/actions/work-orders';
+import { Send, Play, CheckCircle, Undo2 } from 'lucide-react';
 
 interface WorkOrder {
   id: string;
@@ -45,6 +45,19 @@ export function WorkOrderActions({ workOrder, isStaff }: WorkOrderActionsProps) 
     });
   };
 
+  const handleRevertToDraft = () => {
+    if (!confirm('Are you sure you want to revert this work order to draft? The approval link will be invalidated.')) {
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await revertToDraft(workOrder.id);
+      } catch (error) {
+        alert(error instanceof Error ? error.message : 'Failed to revert');
+      }
+    });
+  };
+
   const handleMarkComplete = () => {
     startTransition(async () => {
       try {
@@ -64,6 +77,13 @@ export function WorkOrderActions({ workOrder, isStaff }: WorkOrderActionsProps) 
           <Button onClick={handleSubmitForApproval} isLoading={isPending}>
             <Send className="h-4 w-4 mr-2" />
             Submit for Approval
+          </Button>
+        )}
+
+        {workOrder.status === 'pending_approval' && (
+          <Button variant="outline" onClick={handleRevertToDraft} isLoading={isPending}>
+            <Undo2 className="h-4 w-4 mr-2" />
+            Revert to Draft
           </Button>
         )}
 
