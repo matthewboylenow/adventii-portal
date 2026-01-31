@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { ChangeOrderForm } from './change-order-form';
-import { deleteChangeOrder, getReasonLabel } from '@/app/actions/change-orders';
-import { formatCurrency, formatDateTime, formatHours } from '@/lib/utils';
+import { deleteChangeOrder } from '@/app/actions/change-orders';
+import { formatCurrency, formatDateTime, formatHours, getChangeOrderReasonLabel } from '@/lib/utils';
 import {
   Plus,
   CheckCircle,
@@ -215,7 +215,7 @@ export function ChangeOrdersSection({
                           <span className="font-medium">
                             {co.reason === 'other'
                               ? co.reasonOther
-                              : getReasonLabel(co.reason)}
+                              : getChangeOrderReasonLabel(co.reason)}
                           </span>
                         </div>
                       </div>

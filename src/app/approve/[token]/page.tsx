@@ -7,12 +7,12 @@ import {
   formatHours,
   getVenueLabel,
   getEventTypeLabel,
+  getChangeOrderReasonLabel,
 } from '@/lib/utils';
 import { CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react';
 import { db } from '@/lib/db';
 import { serviceTemplates } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
-import { getReasonLabel } from '@/app/actions/change-orders';
 
 interface ApprovePageProps {
   params: Promise<{ token: string }>;
@@ -128,7 +128,7 @@ export default async function ApprovePage({ params }: ApprovePageProps) {
                 <p className="font-medium">
                   {changeOrder.reason === 'other'
                     ? changeOrder.reasonOther
-                    : getReasonLabel(changeOrder.reason)}
+                    : getChangeOrderReasonLabel(changeOrder.reason)}
                 </p>
               </div>
 

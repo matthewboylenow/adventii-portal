@@ -164,3 +164,14 @@ export function getIncidentOutcomeLabel(outcome: string): string {
   };
   return labels[outcome] || outcome;
 }
+
+export function getChangeOrderReasonLabel(reason: string): string {
+  const labels: Record<string, string> = {
+    unexpected_technical_issue: 'Unexpected Technical Issue',
+    recovery_editing_complexity: 'Recovery/Editing Complexity',
+    added_deliverables: 'Added Deliverables',
+    client_request: 'Client Request',
+    other: 'Other',
+  };
+  return labels[reason] || reason;
+}

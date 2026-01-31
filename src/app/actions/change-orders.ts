@@ -25,17 +25,6 @@ const createChangeOrderSchema = z.object({
 
 export type CreateChangeOrderInput = z.infer<typeof createChangeOrderSchema>;
 
-const reasonLabels: Record<string, string> = {
-  unexpected_technical_issue: 'Unexpected Technical Issue',
-  recovery_editing_complexity: 'Recovery/Editing Complexity',
-  added_deliverables: 'Added Deliverables',
-  client_request: 'Client Request',
-  other: 'Other',
-};
-
-export function getReasonLabel(reason: string): string {
-  return reasonLabels[reason] || reason;
-}
 
 export async function createChangeOrder(data: CreateChangeOrderInput) {
   const user = await requireAdventiiStaff();
