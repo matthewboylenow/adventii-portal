@@ -121,7 +121,7 @@ export async function createSeries(data: CreateSeriesInput) {
         notes: validatedData.notes || null,
         internalNotes: validatedData.internalNotes || null,
         hourlyRateSnapshot: hourlyRate,
-        status: 'draft',
+        status: 'in_progress',
         createdById: user.id,
       })
       .returning();
@@ -184,17 +184,17 @@ export async function submitSeriesForApproval(seriesId: string) {
 
   const { series, workOrders: seriesWorkOrders } = seriesData;
 
-  // Filter to only draft work orders
-  const draftWorkOrders = seriesWorkOrders.filter((wo) => wo.status === 'draft');
+  // Filter to only in_progress work orders
+  const inProgressWorkOrders = seriesWorkOrders.filter((wo) => wo.status === 'in_progress');
 
-  if (draftWorkOrders.length === 0) {
-    throw new Error('No draft work orders to submit');
+  if (inProgressWorkOrders.length === 0) {
+    throw new Error('No work orders ready for sign-off');
   }
 
   // Generate tokens and update status for each work order
   const tokens: { workOrderId: string; token: string }[] = [];
 
-  for (const wo of draftWorkOrders) {
+  for (const wo of inProgressWorkOrders) {
     const token = crypto.randomUUID();
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 30);
@@ -241,20 +241,20 @@ export async function deleteSeries(seriesId: string) {
     throw new Error('Series not found');
   }
 
-  // Check if any work orders are not draft
-  const nonDraftWorkOrders = await db
+  // Check if any work orders have been signed off
+  const signedOffWorkOrders = await db
     .select()
     .from(workOrders)
     .where(
-      and(eq(workOrders.seriesId, seriesId), ne(workOrders.status, 'draft'))
+      and(eq(workOrders.seriesId, seriesId), ne(workOrders.status, 'in_progress'))
     )
     .limit(1);
 
-  if (nonDraftWorkOrders.length > 0) {
-    throw new Error('Cannot delete series with submitted work orders. Delete individual work orders first.');
+  if (signedOffWorkOrders.length > 0) {
+    throw new Error('Cannot delete series with signed-off work orders. Delete individual work orders first.');
   }
 
-  // Delete all draft work orders in series
+  // Delete all in_progress work orders in series
   await db.delete(workOrders).where(eq(workOrders.seriesId, seriesId));
 
   // Delete series

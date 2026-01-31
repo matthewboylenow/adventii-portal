@@ -154,8 +154,8 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
     }
   };
 
-  const showEditButton = canEditWorkOrders(user) && ['draft', 'pending_approval'].includes(workOrder.status);
-  const showDeleteButton = canDeleteWorkOrders(user) && workOrder.status === 'draft';
+  const showEditButton = canEditWorkOrders(user) && ['in_progress', 'pending_approval'].includes(workOrder.status);
+  const showDeleteButton = canDeleteWorkOrders(user) && workOrder.status === 'in_progress';
   const isStaff = isAdventiiUser(user);
 
   const getEstimateDisplay = () => {

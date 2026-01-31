@@ -24,7 +24,7 @@ const statusConfig: Record<Status, { label: string; className: string }> = {
     className: 'bg-gray-100 text-gray-700',
   },
   pending_approval: {
-    label: 'Pending Approval',
+    label: 'Awaiting Sign-off',
     className: 'bg-yellow-100 text-yellow-800',
   },
   approved: {

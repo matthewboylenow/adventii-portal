@@ -56,14 +56,23 @@ export async function createWorkOrder(data: CreateWorkOrderInput) {
 
   const hourlyRate = org?.hourlyRate || '75.00';
 
+  // Combine date with time if provided
+  const eventDateStr = validatedData.eventDate;
+  const startDateTime = validatedData.startTime
+    ? new Date(`${eventDateStr}T${validatedData.startTime}:00`)
+    : null;
+  const endDateTime = validatedData.endTime
+    ? new Date(`${eventDateStr}T${validatedData.endTime}:00`)
+    : null;
+
   const [workOrder] = await db
     .insert(workOrders)
     .values({
       organizationId: user.organizationId,
       eventName: validatedData.eventName,
-      eventDate: new Date(validatedData.eventDate),
-      startTime: validatedData.startTime ? new Date(validatedData.startTime) : null,
-      endTime: validatedData.endTime ? new Date(validatedData.endTime) : null,
+      eventDate: new Date(eventDateStr),
+      startTime: startDateTime,
+      endTime: endDateTime,
       venue: validatedData.venue,
       venueOther: validatedData.venue === 'other' ? validatedData.venueOther : null,
       eventType: validatedData.eventType,
@@ -85,7 +94,7 @@ export async function createWorkOrder(data: CreateWorkOrderInput) {
       notes: validatedData.notes || null,
       internalNotes: validatedData.internalNotes || null,
       hourlyRateSnapshot: hourlyRate,
-      status: 'draft',
+      status: 'in_progress',
       createdById: user.id,
     })
     .returning();
@@ -119,18 +128,27 @@ export async function updateWorkOrder(workOrderId: string, data: CreateWorkOrder
     throw new Error('Work order not found');
   }
 
-  // Can only edit draft or pending_approval work orders
-  if (!['draft', 'pending_approval'].includes(existingWO.status)) {
-    throw new Error('Cannot edit approved work orders. Create a change order instead.');
+  // Can only edit in_progress or pending_approval work orders
+  if (!['in_progress', 'pending_approval'].includes(existingWO.status)) {
+    throw new Error('Cannot edit completed work orders. Create a change order instead.');
   }
+
+  // Combine date with time if provided
+  const eventDateStr = validatedData.eventDate;
+  const startDateTime = validatedData.startTime
+    ? new Date(`${eventDateStr}T${validatedData.startTime}:00`)
+    : null;
+  const endDateTime = validatedData.endTime
+    ? new Date(`${eventDateStr}T${validatedData.endTime}:00`)
+    : null;
 
   await db
     .update(workOrders)
     .set({
       eventName: validatedData.eventName,
-      eventDate: new Date(validatedData.eventDate),
-      startTime: validatedData.startTime ? new Date(validatedData.startTime) : null,
-      endTime: validatedData.endTime ? new Date(validatedData.endTime) : null,
+      eventDate: new Date(eventDateStr),
+      startTime: startDateTime,
+      endTime: endDateTime,
       venue: validatedData.venue,
       venueOther: validatedData.venue === 'other' ? validatedData.venueOther : null,
       eventType: validatedData.eventType,
@@ -183,9 +201,9 @@ export async function deleteWorkOrder(workOrderId: string) {
     throw new Error('Work order not found');
   }
 
-  // Can only delete draft work orders
-  if (existingWO.status !== 'draft') {
-    throw new Error('Can only delete draft work orders');
+  // Can only delete in_progress work orders (not yet signed off)
+  if (existingWO.status !== 'in_progress') {
+    throw new Error('Can only delete work orders that have not been signed off');
   }
 
   await db.delete(workOrders).where(eq(workOrders.id, workOrderId));
@@ -213,8 +231,8 @@ export async function submitForApproval(workOrderId: string) {
     throw new Error('Work order not found');
   }
 
-  if (existingWO.status !== 'draft') {
-    throw new Error('Work order has already been submitted');
+  if (existingWO.status !== 'in_progress') {
+    throw new Error('Work order must be in progress to request sign-off');
   }
 
   // Generate approval token
@@ -333,7 +351,7 @@ export async function revertToDraft(workOrderId: string) {
   }
 
   if (existingWO.status !== 'pending_approval') {
-    throw new Error('Can only revert pending approval work orders to draft');
+    throw new Error('Can only cancel sign-off for pending approval work orders');
   }
 
   // Delete the approval token
@@ -341,10 +359,10 @@ export async function revertToDraft(workOrderId: string) {
     .delete(approvalTokens)
     .where(eq(approvalTokens.workOrderId, workOrderId));
 
-  // Update status back to draft
+  // Update status back to in_progress
   await db
     .update(workOrders)
-    .set({ status: 'draft', updatedAt: new Date() })
+    .set({ status: 'in_progress', updatedAt: new Date() })
     .where(eq(workOrders.id, workOrderId));
 
   revalidatePath('/work-orders');

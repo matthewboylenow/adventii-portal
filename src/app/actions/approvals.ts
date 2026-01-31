@@ -131,10 +131,10 @@ export async function signApproval(input: SignApprovalInput) {
       })
       .where(eq(changeOrders.id, tokenRecord.changeOrderId!));
   } else {
-    // Update work order status
+    // Update work order status - sign-off means work is complete
     await db
       .update(workOrders)
-      .set({ status: 'approved', updatedAt: new Date() })
+      .set({ status: 'completed', updatedAt: new Date() })
       .where(eq(workOrders.id, input.workOrderId));
   }
 
