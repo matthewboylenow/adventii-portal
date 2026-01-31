@@ -71,7 +71,7 @@ export function ChangeOrdersSection({
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const canCreateChangeOrder =
-    isStaff && ['pending_approval', 'approved', 'in_progress', 'completed'].includes(workOrderStatus);
+    isStaff && ['draft', 'pending_approval', 'approved', 'in_progress', 'completed'].includes(workOrderStatus);
 
   const getApprovalForChangeOrder = (changeOrderId: string) => {
     return approvals.find((a) => a.changeOrderId === changeOrderId);

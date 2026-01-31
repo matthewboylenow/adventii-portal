@@ -48,7 +48,7 @@ export function WorkOrderActions({ workOrder, isStaff }: WorkOrderActionsProps) 
 
   return (
     <div className="flex flex-wrap gap-3">
-      {workOrder.status === 'in_progress' && (
+      {['draft', 'in_progress'].includes(workOrder.status) && (
         <Button onClick={handleRequestSignoff} isLoading={isPending}>
           <Send className="h-4 w-4 mr-2" />
           Request Sign-off

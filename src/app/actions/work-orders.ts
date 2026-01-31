@@ -128,8 +128,8 @@ export async function updateWorkOrder(workOrderId: string, data: CreateWorkOrder
     throw new Error('Work order not found');
   }
 
-  // Can only edit in_progress or pending_approval work orders
-  if (!['in_progress', 'pending_approval'].includes(existingWO.status)) {
+  // Can only edit draft, in_progress, or pending_approval work orders
+  if (!['draft', 'in_progress', 'pending_approval'].includes(existingWO.status)) {
     throw new Error('Cannot edit completed work orders. Create a change order instead.');
   }
 
@@ -201,8 +201,8 @@ export async function deleteWorkOrder(workOrderId: string) {
     throw new Error('Work order not found');
   }
 
-  // Can only delete in_progress work orders (not yet signed off)
-  if (existingWO.status !== 'in_progress') {
+  // Can only delete draft or in_progress work orders (not yet signed off)
+  if (!['draft', 'in_progress'].includes(existingWO.status)) {
     throw new Error('Can only delete work orders that have not been signed off');
   }
 
@@ -231,7 +231,7 @@ export async function submitForApproval(workOrderId: string) {
     throw new Error('Work order not found');
   }
 
-  if (existingWO.status !== 'in_progress') {
+  if (!['draft', 'in_progress'].includes(existingWO.status)) {
     throw new Error('Work order must be in progress to request sign-off');
   }
 
