@@ -52,7 +52,7 @@ export function formatTime(date: Date | string): string {
 
 export function formatHours(hours: string | number): string {
   const num = typeof hours === 'string' ? parseFloat(hours) : hours;
-  return `${num.toFixed(1)} hrs`;
+  return `${num.toFixed(2)} hrs`;
 }
 
 export function generateWorkOrderHash(workOrder: Record<string, unknown>): string {
