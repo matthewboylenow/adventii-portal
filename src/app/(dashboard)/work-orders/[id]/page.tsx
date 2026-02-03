@@ -33,6 +33,7 @@ import {
 import { WorkOrderActions } from './work-order-actions';
 import { ChangeOrdersSection } from './change-orders-section';
 import { TimeLogsSection } from './time-logs-section';
+import { EstimateSection } from './estimate-section';
 
 interface WorkOrderPageProps {
   params: Promise<{ id: string }>;
@@ -158,35 +159,6 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
   const showDeleteButton = canDeleteWorkOrders(user) && ['draft', 'in_progress'].includes(workOrder.status);
   const isStaff = isAdventiiUser(user);
 
-  const getEstimateDisplay = () => {
-    switch (workOrder.estimateType) {
-      case 'range':
-        return `${workOrder.estimatedHoursMin || 0} - ${workOrder.estimatedHoursMax || 0} hours`;
-      case 'fixed':
-        return `${workOrder.estimatedHoursFixed || 0} hours (fixed)`;
-      case 'not_to_exceed':
-        return `${workOrder.estimatedHoursNTE || 0} hours (not-to-exceed)`;
-      default:
-        return 'Not specified';
-    }
-  };
-
-  const estimatedCost = () => {
-    const rate = parseFloat(workOrder.hourlyRateSnapshot);
-    switch (workOrder.estimateType) {
-      case 'range':
-        const min = parseFloat(workOrder.estimatedHoursMin || '0') * rate;
-        const max = parseFloat(workOrder.estimatedHoursMax || '0') * rate;
-        return `${formatCurrency(min)} - ${formatCurrency(max)}`;
-      case 'fixed':
-        return formatCurrency(parseFloat(workOrder.estimatedHoursFixed || '0') * rate);
-      case 'not_to_exceed':
-        return `Up to ${formatCurrency(parseFloat(workOrder.estimatedHoursNTE || '0') * rate)}`;
-      default:
-        return '-';
-    }
-  };
-
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       {/* Header */}
@@ -310,31 +282,16 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
           </CardContent>
         </Card>
 
-        {/* Estimate & Cost */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Estimate & Cost</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <p className="text-sm text-gray-500">Time Estimate</p>
-              <p className="font-medium">{getEstimateDisplay()}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Estimated Cost</p>
-              <p className="font-medium">{estimatedCost()}</p>
-              <p className="text-xs text-gray-400">
-                @ {formatCurrency(workOrder.hourlyRateSnapshot)}/hr
-              </p>
-            </div>
-            {parseFloat(workOrder.actualHours || '0') > 0 && (
-              <div>
-                <p className="text-sm text-gray-500">Actual Hours</p>
-                <p className="font-medium">{formatHours(workOrder.actualHours || '0')}</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        {/* Estimate & Cost (Collapsible) */}
+        <EstimateSection
+          estimateType={workOrder.estimateType}
+          estimatedHoursMin={workOrder.estimatedHoursMin}
+          estimatedHoursMax={workOrder.estimatedHoursMax}
+          estimatedHoursFixed={workOrder.estimatedHoursFixed}
+          estimatedHoursNTE={workOrder.estimatedHoursNTE}
+          hourlyRateSnapshot={workOrder.hourlyRateSnapshot}
+          actualHours={workOrder.actualHours || '0'}
+        />
 
         {/* Scope of Work */}
         <Card>

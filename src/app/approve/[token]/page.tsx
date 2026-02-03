@@ -9,7 +9,7 @@ import {
   getEventTypeLabel,
   getChangeOrderReasonLabel,
 } from '@/lib/utils';
-import { CheckCircle, AlertCircle, AlertTriangle } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Clock } from 'lucide-react';
 import { db } from '@/lib/db';
 import { serviceTemplates } from '@/lib/db/schema';
 import { inArray } from 'drizzle-orm';
@@ -38,7 +38,7 @@ export default async function ApprovePage({ params }: ApprovePageProps) {
     );
   }
 
-  const { workOrder, changeOrder, approvers, isChangeOrderApproval } = data;
+  const { workOrder, changeOrder, approvers, isChangeOrderApproval, timeLogs } = data;
 
   // Get services
   let scopeServices: { id: string; name: string }[] = [];
@@ -49,34 +49,29 @@ export default async function ApprovePage({ params }: ApprovePageProps) {
       .where(inArray(serviceTemplates.id, workOrder.scopeServiceIds));
   }
 
-  const getEstimateDisplay = () => {
-    switch (workOrder.estimateType) {
-      case 'range':
-        return `${workOrder.estimatedHoursMin || 0} - ${workOrder.estimatedHoursMax || 0} hours`;
-      case 'fixed':
-        return `${workOrder.estimatedHoursFixed || 0} hours (fixed)`;
-      case 'not_to_exceed':
-        return `${workOrder.estimatedHoursNTE || 0} hours (not-to-exceed)`;
-      default:
-        return 'Not specified';
-    }
+  const categoryLabels: Record<string, string> = {
+    on_site: 'On-Site',
+    remote: 'Remote',
+    post_production: 'Post-Production',
+    admin: 'Admin',
   };
 
-  const getEstimatedCost = () => {
-    const rate = parseFloat(workOrder.hourlyRateSnapshot);
-    switch (workOrder.estimateType) {
-      case 'range':
-        const min = parseFloat(workOrder.estimatedHoursMin || '0') * rate;
-        const max = parseFloat(workOrder.estimatedHoursMax || '0') * rate;
-        return `${formatCurrency(min)} - ${formatCurrency(max)}`;
-      case 'fixed':
-        return formatCurrency(parseFloat(workOrder.estimatedHoursFixed || '0') * rate);
-      case 'not_to_exceed':
-        return `Up to ${formatCurrency(parseFloat(workOrder.estimatedHoursNTE || '0') * rate)}`;
-      default:
-        return '-';
-    }
+  const formatTime = (date: Date | null) => {
+    if (!date) return null;
+    return new Date(date).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+    });
   };
+
+  // Calculate total hours from time logs
+  const totalHours = timeLogs.reduce(
+    (sum, log) => sum + parseFloat(log.hours),
+    0
+  );
+
+  // Calculate total cost
+  const totalCost = totalHours * parseFloat(workOrder.hourlyRateSnapshot);
 
   const additionalCost = changeOrder
     ? parseFloat(changeOrder.additionalHours) * parseFloat(workOrder.hourlyRateSnapshot)
@@ -166,29 +161,59 @@ export default async function ApprovePage({ params }: ApprovePageProps) {
             </div>
           </CardHeader>
           <CardContent className="space-y-6">
-            {/* Date */}
+            {/* Date & Total */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-gray-500">Event Date</p>
                 <p className="font-medium">{formatShortDate(workOrder.eventDate)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-500">
-                  {isChangeOrderApproval ? 'Original Estimated Cost' : 'Estimated Cost'}
+                <p className="text-sm text-gray-500">Total Hours</p>
+                <p className="font-medium text-brand-purple">{formatHours(totalHours.toString())}</p>
+                <p className="text-xs text-gray-400">
+                  {formatCurrency(totalCost)} @ {formatCurrency(workOrder.hourlyRateSnapshot)}/hr
                 </p>
-                <p className="font-medium text-brand-purple">{getEstimatedCost()}</p>
               </div>
             </div>
 
-            {/* Time Estimate */}
+            {/* Time Logs */}
             <div>
-              <p className="text-sm text-gray-500">
-                {isChangeOrderApproval ? 'Original Time Estimate' : 'Time Estimate'}
+              <p className="text-sm text-gray-500 mb-3 flex items-center gap-2">
+                <Clock className="h-4 w-4" />
+                Time Logged
               </p>
-              <p className="font-medium">{getEstimateDisplay()}</p>
-              <p className="text-xs text-gray-400">
-                @ {formatCurrency(workOrder.hourlyRateSnapshot)}/hr
-              </p>
+              {timeLogs.length === 0 ? (
+                <p className="text-sm text-gray-400 italic">No time logged yet</p>
+              ) : (
+                <div className="space-y-2">
+                  {timeLogs.map((log) => (
+                    <div
+                      key={log.id}
+                      className="p-3 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <span className="font-medium">{formatHours(log.hours)}</span>
+                          <span className="text-sm text-gray-500">
+                            {categoryLabels[log.category] || log.category}
+                          </span>
+                        </div>
+                        <span className="text-sm text-gray-500">
+                          {formatShortDate(log.date)}
+                        </span>
+                      </div>
+                      {log.startTime && log.endTime && (
+                        <p className="text-xs text-gray-400 mt-1">
+                          {formatTime(log.startTime)} - {formatTime(log.endTime)}
+                        </p>
+                      )}
+                      {log.description && (
+                        <p className="text-sm text-gray-600 mt-1">{log.description}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Scope */}

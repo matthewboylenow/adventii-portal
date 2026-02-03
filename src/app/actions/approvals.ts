@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { approvals, approvalTokens, workOrders, users, changeOrders } from '@/lib/db/schema';
-import { eq, and, gt } from 'drizzle-orm';
+import { approvals, approvalTokens, workOrders, users, changeOrders, timeLogs } from '@/lib/db/schema';
+import { eq, and, gt, desc } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { put } from '@vercel/blob';
 import { generateWorkOrderHash } from '@/lib/utils';
@@ -220,11 +220,27 @@ export async function getApprovalData(token: string) {
       )
     );
 
+  // Get time logs for sign-off display
+  const workOrderTimeLogs = await db
+    .select({
+      id: timeLogs.id,
+      date: timeLogs.date,
+      startTime: timeLogs.startTime,
+      endTime: timeLogs.endTime,
+      hours: timeLogs.hours,
+      category: timeLogs.category,
+      description: timeLogs.description,
+    })
+    .from(timeLogs)
+    .where(eq(timeLogs.workOrderId, workOrder.id))
+    .orderBy(desc(timeLogs.date));
+
   return {
     workOrder,
     changeOrder,
     approvers,
     token,
     isChangeOrderApproval,
+    timeLogs: workOrderTimeLogs,
   };
 }
