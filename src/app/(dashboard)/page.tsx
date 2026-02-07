@@ -17,6 +17,8 @@ import {
   Calendar,
   TrendingUp,
 } from 'lucide-react';
+import { InvoicePeriods } from '@/components/dashboard/invoice-periods';
+import { getBillingPeriodData } from '@/app/actions/invoices';
 
 export default async function DashboardPage() {
   const user = await getCurrentUser();
@@ -112,6 +114,16 @@ export default async function DashboardPage() {
     weeklyHours = hoursResult?.totalHours || '0';
   }
 
+  // Get billing period data for staff
+  let billingPeriodData = null;
+  if (isStaff) {
+    try {
+      billingPeriodData = await getBillingPeriodData();
+    } catch {
+      // Non-critical - don't break dashboard if this fails
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -198,6 +210,14 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Invoice Periods (Staff only) */}
+      {isStaff && billingPeriodData && (
+        <InvoicePeriods
+          current={billingPeriodData.current}
+          next={billingPeriodData.next}
+        />
+      )}
 
       {/* Upcoming Events */}
       {upcomingEvents.length > 0 && (

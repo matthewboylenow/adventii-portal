@@ -205,6 +205,20 @@ export const approvalTokens = pgTable('approval_tokens', {
 ]);
 
 // ============================================================================
+// INVOICE VIEW TOKENS (For public invoice access via email)
+// ============================================================================
+
+export const invoiceViewTokens = pgTable('invoice_view_tokens', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  token: varchar('token', { length: 255 }).notNull().unique(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id).notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('invoice_view_tokens_token_idx').on(table.token),
+]);
+
+// ============================================================================
 // WORK ORDER SERIES (for bulk events)
 // ============================================================================
 
@@ -632,6 +646,14 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   lineItems: many(invoiceLineItems),
   payments: many(payments),
   workOrders: many(workOrders),
+  viewTokens: many(invoiceViewTokens),
+}));
+
+export const invoiceViewTokensRelations = relations(invoiceViewTokens, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceViewTokens.invoiceId],
+    references: [invoices.id],
+  }),
 }));
 
 export const invoiceLineItemsRelations = relations(invoiceLineItems, ({ one }) => ({
@@ -713,3 +735,6 @@ export type NewApprovalToken = typeof approvalTokens.$inferInsert;
 
 export type WorkOrderSeries = typeof workOrderSeries.$inferSelect;
 export type NewWorkOrderSeries = typeof workOrderSeries.$inferInsert;
+
+export type InvoiceViewToken = typeof invoiceViewTokens.$inferSelect;
+export type NewInvoiceViewToken = typeof invoiceViewTokens.$inferInsert;

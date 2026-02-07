@@ -58,6 +58,13 @@ export async function sendEmail(options: SendEmailOptions) {
   return result;
 }
 
+interface InvoiceLineItemEmail {
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  amount: string;
+}
+
 interface InvoiceEmailOptions {
   invoiceNumber: string;
   invoiceId: string;
@@ -66,13 +73,29 @@ interface InvoiceEmailOptions {
   organizationName: string;
   amountDue: string;
   dueDate?: string;
+  lineItems?: InvoiceLineItemEmail[];
+  viewToken?: string;
+}
+
+function formatCurrencyEmail(amount: string | number): string {
+  const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
 }
 
 export async function sendInvoiceEmail(options: InvoiceEmailOptions) {
   const portalUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://portal.adventii.com';
-  const invoiceUrl = `${portalUrl}/invoices/${options.invoiceId}`;
+  const invoiceUrl = options.viewToken
+    ? `${portalUrl}/invoice/${options.viewToken}`
+    : `${portalUrl}/invoices/${options.invoiceId}`;
 
   const subject = `Invoice ${options.invoiceNumber} from Adventii Media`;
+
+  // Build line items text
+  const lineItemsText = options.lineItems && options.lineItems.length > 0
+    ? '\nLine Items:\n' + options.lineItems.map(
+        (li) => `  - ${li.description}: ${formatCurrencyEmail(li.amount)}`
+      ).join('\n') + '\n'
+    : '';
 
   const textContent = `
 Hello ${options.recipientName},
@@ -82,8 +105,8 @@ A new invoice has been issued for ${options.organizationName}.
 Invoice Number: ${options.invoiceNumber}
 Amount Due: ${options.amountDue}
 ${options.dueDate ? `Due Date: ${options.dueDate}` : ''}
-
-View and pay your invoice online:
+${lineItemsText}
+View your invoice online:
 ${invoiceUrl}
 
 Thank you for your business!
@@ -91,6 +114,30 @@ Thank you for your business!
 Adventii Media
 Real Solutions. Real Results.
   `.trim();
+
+  // Build line items HTML
+  const lineItemsHtml = options.lineItems && options.lineItems.length > 0
+    ? `
+    <div style="background: white; border-radius: 8px; padding: 0; margin-bottom: 20px; overflow: hidden;">
+      <table style="width: 100%; border-collapse: collapse;">
+        <thead>
+          <tr style="background: #f3f4f6;">
+            <th style="padding: 10px 16px; text-align: left; font-size: 12px; color: #525252; text-transform: uppercase; font-weight: 500;">Description</th>
+            <th style="padding: 10px 16px; text-align: right; font-size: 12px; color: #525252; text-transform: uppercase; font-weight: 500;">Amount</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${options.lineItems.map((li) => `
+          <tr style="border-top: 1px solid #f3f4f6;">
+            <td style="padding: 10px 16px; font-size: 14px; color: #1A1A1A;">${li.description}</td>
+            <td style="padding: 10px 16px; font-size: 14px; color: #1A1A1A; text-align: right; font-weight: 500;">${formatCurrencyEmail(li.amount)}</td>
+          </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    `
+    : '';
 
   const htmlContent = `
 <!DOCTYPE html>
@@ -128,8 +175,10 @@ Real Solutions. Real Results.
       </table>
     </div>
 
+    ${lineItemsHtml}
+
     <div style="text-align: center;">
-      <a href="${invoiceUrl}" style="display: inline-block; background: #6B46C1; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 500;">View Invoice</a>
+      <a href="${invoiceUrl}" style="display: inline-block; background: #6B46C1; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 500;">View Invoice Details</a>
     </div>
   </div>
 
