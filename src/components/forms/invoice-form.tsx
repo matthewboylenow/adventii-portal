@@ -3,7 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Textarea, useToast } from '@/components/ui';
-import { createInvoice, type CreateInvoiceInput } from '@/app/actions/invoices';
+import { createInvoice, updateInvoice, type CreateInvoiceInput } from '@/app/actions/invoices';
 import { formatCurrency } from '@/lib/utils';
 import { Plus, Trash2, CheckCircle } from 'lucide-react';
 
@@ -15,10 +15,31 @@ interface WorkOrder {
   hourlyRateSnapshot: string;
 }
 
+interface ExistingLineItem {
+  id: string;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  amount: string;
+  workOrderId: string | null;
+  isRetainer: boolean;
+  isCustom: boolean;
+  sortOrder: number;
+}
+
 interface InvoiceFormProps {
   completedWorkOrders: WorkOrder[];
   hourlyRate: string;
   monthlyRetainer: string;
+  invoiceId?: string;
+  initialPeriodStart?: string;
+  initialPeriodEnd?: string;
+  initialDueDate?: string;
+  initialLineItems?: ExistingLineItem[];
+  initialDiscountType?: 'flat' | 'percentage' | '';
+  initialDiscountValue?: string;
+  initialNotes?: string;
+  initialInternalNotes?: string;
 }
 
 interface LineItem {
@@ -35,20 +56,44 @@ export function InvoiceForm({
   completedWorkOrders,
   hourlyRate,
   monthlyRetainer,
+  invoiceId,
+  initialPeriodStart,
+  initialPeriodEnd,
+  initialDueDate,
+  initialLineItems,
+  initialDiscountType,
+  initialDiscountValue,
+  initialNotes,
+  initialInternalNotes,
 }: InvoiceFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
 
-  const [periodStart, setPeriodStart] = useState('');
-  const [periodEnd, setPeriodEnd] = useState('');
+  const isEditMode = !!invoiceId;
+
+  const [periodStart, setPeriodStart] = useState(initialPeriodStart || '');
+  const [periodEnd, setPeriodEnd] = useState(initialPeriodEnd || '');
+  const [dueDate, setDueDate] = useState(initialDueDate || '');
   const [selectedWorkOrderIds, setSelectedWorkOrderIds] = useState<string[]>([]);
-  const [lineItems, setLineItems] = useState<LineItem[]>([]);
-  const [discountType, setDiscountType] = useState<'flat' | 'percentage' | ''>('');
-  const [discountValue, setDiscountValue] = useState('');
-  const [notes, setNotes] = useState('');
-  const [internalNotes, setInternalNotes] = useState('');
+  const [lineItems, setLineItems] = useState<LineItem[]>(
+    initialLineItems
+      ? initialLineItems.map((li) => ({
+          id: li.id,
+          description: li.description,
+          quantity: li.quantity,
+          unitPrice: li.unitPrice,
+          workOrderId: li.workOrderId || undefined,
+          isRetainer: li.isRetainer,
+          isCustom: li.isCustom,
+        }))
+      : []
+  );
+  const [discountType, setDiscountType] = useState<'flat' | 'percentage' | ''>(initialDiscountType || '');
+  const [discountValue, setDiscountValue] = useState(initialDiscountValue || '');
+  const [notes, setNotes] = useState(initialNotes || '');
+  const [internalNotes, setInternalNotes] = useState(initialInternalNotes || '');
 
   const toggleWorkOrder = (woId: string) => {
     setSelectedWorkOrderIds((prev) =>
@@ -146,33 +191,52 @@ export function InvoiceForm({
 
     startTransition(async () => {
       try {
-        const input: CreateInvoiceInput = {
-          periodStart: periodStart || undefined,
-          periodEnd: periodEnd || undefined,
-          workOrderIds: selectedWorkOrderIds.length > 0 ? selectedWorkOrderIds : undefined,
-          lineItems: lineItems.map((item) => ({
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            workOrderId: item.workOrderId,
-            isRetainer: item.isRetainer,
-            isCustom: item.isCustom,
-          })),
-          discountType: discountType || undefined,
-          discountValue: discountValue ? parseFloat(discountValue) : undefined,
-          notes: notes || undefined,
-          internalNotes: internalNotes || undefined,
-        };
+        const lineItemsPayload = lineItems.map((item) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          workOrderId: item.workOrderId,
+          isRetainer: item.isRetainer,
+          isCustom: item.isCustom,
+        }));
 
-        const result = await createInvoice(input);
+        if (isEditMode) {
+          await updateInvoice(invoiceId, {
+            periodStart: periodStart || undefined,
+            periodEnd: periodEnd || undefined,
+            dueDate: dueDate || undefined,
+            lineItems: lineItemsPayload,
+            discountType: discountType || undefined,
+            discountValue: discountValue ? parseFloat(discountValue) : undefined,
+            notes: notes || undefined,
+            internalNotes: internalNotes || undefined,
+          });
 
-        if (result.success) {
-          toast.success('Invoice created', `Invoice #${result.invoice.invoiceNumber} has been created`);
-          router.push(`/invoices/${result.invoice.id}`);
+          toast.success('Invoice updated', 'Changes have been saved');
+          router.push(`/invoices/${invoiceId}`);
+        } else {
+          const input: CreateInvoiceInput = {
+            periodStart: periodStart || undefined,
+            periodEnd: periodEnd || undefined,
+            workOrderIds: selectedWorkOrderIds.length > 0 ? selectedWorkOrderIds : undefined,
+            lineItems: lineItemsPayload,
+            discountType: discountType || undefined,
+            discountValue: discountValue ? parseFloat(discountValue) : undefined,
+            notes: notes || undefined,
+            internalNotes: internalNotes || undefined,
+          };
+
+          const result = await createInvoice(input);
+
+          if (result.success) {
+            toast.success('Invoice created', `Invoice #${result.invoice.invoiceNumber} has been created`);
+            router.push(`/invoices/${result.invoice.id}`);
+          }
         }
       } catch (err) {
-        toast.error('Failed to create invoice', err instanceof Error ? err.message : undefined);
-        setError(err instanceof Error ? err.message : 'Failed to create invoice');
+        const action = isEditMode ? 'update' : 'create';
+        toast.error(`Failed to ${action} invoice`, err instanceof Error ? err.message : undefined);
+        setError(err instanceof Error ? err.message : `Failed to ${action} invoice`);
       }
     });
   };
@@ -191,7 +255,7 @@ export function InvoiceForm({
           <CardTitle>Billing Period</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <Input
               label="Period Start"
               type="date"
@@ -203,6 +267,12 @@ export function InvoiceForm({
               type="date"
               value={periodEnd}
               onChange={(e) => setPeriodEnd(e.target.value)}
+            />
+            <Input
+              label="Due Date"
+              type="date"
+              value={dueDate}
+              onChange={(e) => setDueDate(e.target.value)}
             />
           </div>
         </CardContent>
@@ -436,7 +506,7 @@ export function InvoiceForm({
           Cancel
         </Button>
         <Button type="submit" isLoading={isPending} className="flex-1">
-          Create Invoice
+          {isEditMode ? 'Save Changes' : 'Create Invoice'}
         </Button>
       </div>
     </form>
