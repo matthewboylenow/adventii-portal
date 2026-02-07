@@ -8,9 +8,11 @@ interface SignaturePadProps {
   onSave: (signatureData: string) => void;
   onClear?: () => void;
   disabled?: boolean;
+  isSubmitting?: boolean;
+  submitLabel?: string;
 }
 
-export function SignaturePad({ onSave, onClear, disabled }: SignaturePadProps) {
+export function SignaturePad({ onSave, onClear, disabled, isSubmitting, submitLabel = 'Sign & Submit' }: SignaturePadProps) {
   const sigPadRef = useRef<SignatureCanvas>(null);
   const [isEmpty, setIsEmpty] = useState(true);
 
@@ -53,8 +55,7 @@ export function SignaturePad({ onSave, onClear, disabled }: SignaturePadProps) {
           type="button"
           variant="outline"
           onClick={handleClear}
-          className="flex-1"
-          disabled={disabled}
+          disabled={disabled || isSubmitting}
         >
           Clear
         </Button>
@@ -62,9 +63,11 @@ export function SignaturePad({ onSave, onClear, disabled }: SignaturePadProps) {
           type="button"
           onClick={handleSave}
           disabled={isEmpty || disabled}
+          isLoading={isSubmitting}
           className="flex-1"
+          size="lg"
         >
-          Confirm Signature
+          {submitLabel}
         </Button>
       </div>
     </div>

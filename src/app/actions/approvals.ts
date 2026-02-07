@@ -2,7 +2,7 @@
 
 import { db } from '@/lib/db';
 import { approvals, approvalTokens, workOrders, users, changeOrders, timeLogs } from '@/lib/db/schema';
-import { eq, and, gt, desc } from 'drizzle-orm';
+import { eq, and, gt, desc, sql, inArray } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { put } from '@vercel/blob';
 import { generateWorkOrderHash } from '@/lib/utils';
@@ -243,4 +243,106 @@ export async function getApprovalData(token: string) {
     isChangeOrderApproval,
     timeLogs: workOrderTimeLogs,
   };
+}
+
+interface BulkSignOffInput {
+  workOrderIds: string[];
+  approverName: string;
+  approverTitle?: string;
+  signatureData: string;
+  deviceInfo?: {
+    browser?: string;
+    os?: string;
+    device?: string;
+  };
+}
+
+export async function bulkSignOff(input: BulkSignOffInput) {
+  if (!input.workOrderIds.length) {
+    throw new Error('No work orders selected');
+  }
+
+  if (input.workOrderIds.length > 50) {
+    throw new Error('Cannot sign off more than 50 work orders at once');
+  }
+
+  // Get all selected work orders
+  const selectedWorkOrders = await db
+    .select()
+    .from(workOrders)
+    .where(inArray(workOrders.id, input.workOrderIds));
+
+  if (selectedWorkOrders.length !== input.workOrderIds.length) {
+    throw new Error('Some work orders were not found');
+  }
+
+  // Verify all work orders are in pending_approval status
+  const invalidWorkOrders = selectedWorkOrders.filter(
+    (wo) => wo.status !== 'pending_approval'
+  );
+
+  if (invalidWorkOrders.length > 0) {
+    throw new Error(
+      `${invalidWorkOrders.length} work order(s) are not pending approval`
+    );
+  }
+
+  // Upload signature once (will be used for all approvals)
+  const signatureBuffer = Buffer.from(input.signatureData.split(',')[1], 'base64');
+  const blob = await put(
+    `signatures/bulk-${Date.now()}.png`,
+    signatureBuffer,
+    {
+      access: 'public',
+      contentType: 'image/png',
+    }
+  );
+
+  // Create approval records and update work orders for each
+  const results = [];
+  for (const workOrder of selectedWorkOrders) {
+    // Generate work order hash for immutability verification
+    const workOrderHash = generateWorkOrderHash(workOrder);
+
+    // Create approval record
+    const [approval] = await db
+      .insert(approvals)
+      .values({
+        workOrderId: workOrder.id,
+        approverId: null,
+        approverName: input.approverName,
+        approverTitle: input.approverTitle || null,
+        signatureUrl: blob.url,
+        signedAt: new Date(),
+        deviceInfo: input.deviceInfo || null,
+        workOrderHash,
+        isChangeOrder: false,
+        changeOrderId: null,
+      })
+      .returning();
+
+    // Update work order status to completed
+    await db
+      .update(workOrders)
+      .set({ status: 'completed', updatedAt: new Date() })
+      .where(eq(workOrders.id, workOrder.id));
+
+    // Mark any pending approval tokens as used
+    await db
+      .update(approvalTokens)
+      .set({ usedAt: new Date() })
+      .where(
+        and(
+          eq(approvalTokens.workOrderId, workOrder.id),
+          sql`${approvalTokens.usedAt} IS NULL`
+        )
+      );
+
+    results.push({ workOrderId: workOrder.id, approval });
+  }
+
+  revalidatePath('/work-orders');
+  revalidatePath('/approvals');
+
+  return { success: true, count: results.length, results };
 }

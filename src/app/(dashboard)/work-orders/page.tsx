@@ -1,4 +1,4 @@
-import { getCurrentUser, canCreateWorkOrders } from '@/lib/auth';
+import { getCurrentUser, canCreateWorkOrders, canApprove } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { workOrders } from '@/lib/db/schema';
@@ -6,10 +6,9 @@ import { eq, desc, and, sql, ilike, or } from 'drizzle-orm';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { StatusBadge } from '@/components/ui/status-badge';
-import { formatShortDate, formatTime, getVenueLabel, getEventTypeLabel } from '@/lib/utils';
 import { Plus, Calendar } from 'lucide-react';
 import { EmptyWorkOrders, EmptySearchResults, SearchInput } from '@/components/ui';
+import { WorkOrdersTable } from './work-orders-table';
 
 interface WorkOrdersPageProps {
   searchParams: Promise<{
@@ -80,20 +79,8 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
 
   const totalPages = Math.ceil(count / limit);
 
-  const getEstimateDisplay = (wo: typeof workOrdersList[0]) => {
-    switch (wo.estimateType) {
-      case 'range':
-        return `${wo.estimatedHoursMin || 0} - ${wo.estimatedHoursMax || 0} hrs`;
-      case 'fixed':
-        return `${wo.estimatedHoursFixed || 0} hrs`;
-      case 'not_to_exceed':
-        return `NTE ${wo.estimatedHoursNTE || 0} hrs`;
-      default:
-        return '-';
-    }
-  };
-
   const showCreateButton = canCreateWorkOrders(user);
+  const canBulkSignOff = canApprove(user);
 
   return (
     <div className="space-y-6">
@@ -180,71 +167,11 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
               <EmptyWorkOrders canCreate={showCreateButton} />
             )
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-50 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Event
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Date
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Venue
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Estimate
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {workOrdersList.map((wo) => (
-                    <tr key={wo.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <Link
-                          href={`/work-orders/${wo.id}`}
-                          className="font-medium text-gray-900 hover:text-brand-purple"
-                        >
-                          {wo.eventName}
-                        </Link>
-                        <p className="text-sm text-gray-500">
-                          {getEventTypeLabel(wo.eventType)}
-                        </p>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        <div>{formatShortDate(wo.eventDate)}</div>
-                        {wo.startTime && (
-                          <div className="text-gray-400">{formatTime(wo.startTime)}</div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {getVenueLabel(wo.venue)}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {getEstimateDisplay(wo)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <StatusBadge status={wo.status} />
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <Link
-                          href={`/work-orders/${wo.id}`}
-                          className="text-brand-purple hover:text-brand-purple-light text-sm font-medium"
-                        >
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="p-4">
+              <WorkOrdersTable
+                workOrders={workOrdersList}
+                canBulkSignOff={canBulkSignOff}
+              />
             </div>
           )}
         </CardContent>

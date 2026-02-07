@@ -254,6 +254,7 @@ export default async function ApprovePage({ params }: ApprovePageProps) {
           token={token}
           approvers={approvers}
           isChangeOrder={isChangeOrderApproval}
+          workOrderName={workOrder.eventName}
         />
       </div>
     </div>

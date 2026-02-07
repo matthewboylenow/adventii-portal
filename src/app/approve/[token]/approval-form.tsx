@@ -2,9 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { SignaturePad } from '@/components/signatures/signature-pad';
-import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select } from '@/components/ui';
+import { Card, CardContent, CardHeader, CardTitle, Input, Select } from '@/components/ui';
 import { signApproval } from '@/app/actions/approvals';
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, ExternalLink } from 'lucide-react';
 
 interface Approver {
   id: string;
@@ -19,9 +19,10 @@ interface ApprovalFormProps {
   token: string;
   approvers: Approver[];
   isChangeOrder?: boolean;
+  workOrderName?: string;
 }
 
-export function ApprovalForm({ workOrderId, changeOrderId, token, approvers, isChangeOrder = false }: ApprovalFormProps) {
+export function ApprovalForm({ workOrderId, changeOrderId, token, approvers, isChangeOrder = false, workOrderName }: ApprovalFormProps) {
   const [isPending, startTransition] = useTransition();
   const [isComplete, setIsComplete] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,7 +30,6 @@ export function ApprovalForm({ workOrderId, changeOrderId, token, approvers, isC
   const [selectedApproverId, setSelectedApproverId] = useState('');
   const [customName, setCustomName] = useState('');
   const [customTitle, setCustomTitle] = useState('');
-  const [signatureData, setSignatureData] = useState<string | null>(null);
 
   const selectedApprover = approvers.find((a) => a.id === selectedApproverId);
   const isCustom = selectedApproverId === 'other';
@@ -42,18 +42,10 @@ export function ApprovalForm({ workOrderId, changeOrderId, token, approvers, isC
 
   const approverTitle = isCustom ? customTitle : selectedApprover?.title || '';
 
-  const canSubmit = approverName.trim() && signatureData;
+  const canSign = approverName.trim();
 
-  const handleSignature = (data: string) => {
-    setSignatureData(data);
-  };
-
-  const handleClearSignature = () => {
-    setSignatureData(null);
-  };
-
-  const handleSubmit = () => {
-    if (!canSubmit) return;
+  const handleSignatureConfirm = (signatureData: string) => {
+    if (!canSign) return;
 
     setError(null);
     startTransition(async () => {
@@ -72,7 +64,7 @@ export function ApprovalForm({ workOrderId, changeOrderId, token, approvers, isC
           approverId: isCustom ? undefined : selectedApproverId,
           approverName,
           approverTitle: approverTitle || undefined,
-          signatureData: signatureData!,
+          signatureData,
           deviceInfo,
         });
 
@@ -89,13 +81,20 @@ export function ApprovalForm({ workOrderId, changeOrderId, token, approvers, isC
         <CardContent className="p-8 text-center">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-green-800 mb-2">
-            Approval Submitted
+            {isChangeOrder ? 'Change Order Approved' : 'Work Order Completed'}
           </h2>
           <p className="text-green-700">
-            Thank you! The {isChangeOrder ? 'change order' : 'work order'} has been approved successfully.
+            Thank you! {workOrderName ? `"${workOrderName}"` : `The ${isChangeOrder ? 'change order' : 'work order'}`} has been {isChangeOrder ? 'approved' : 'signed off and marked as complete'}.
           </p>
+          <a
+            href={`/work-orders/${workOrderId}`}
+            className="inline-flex items-center gap-2 mt-6 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+          >
+            View {isChangeOrder ? 'Work Order' : 'Completed Work Order'}
+            <ExternalLink className="h-4 w-4" />
+          </a>
           <p className="text-sm text-green-600 mt-4">
-            You can close this window now.
+            Or you can close this window.
           </p>
         </CardContent>
       </Card>
@@ -162,16 +161,11 @@ export function ApprovalForm({ workOrderId, changeOrderId, token, approvers, isC
             Signature
           </label>
           <SignaturePad
-            onSave={handleSignature}
-            onClear={handleClearSignature}
-            disabled={!approverName.trim()}
+            onSave={handleSignatureConfirm}
+            disabled={!canSign || isPending}
+            isSubmitting={isPending}
+            submitLabel={isChangeOrder ? 'Sign & Approve Change Order' : 'Sign & Complete Work Order'}
           />
-          {signatureData && (
-            <div className="mt-4 p-4 bg-green-50 rounded-lg flex items-center gap-2">
-              <CheckCircle className="h-5 w-5 text-green-500" />
-              <span className="text-green-700 text-sm">Signature captured</span>
-            </div>
-          )}
         </div>
 
         {/* Legal Notice */}
@@ -179,17 +173,6 @@ export function ApprovalForm({ workOrderId, changeOrderId, token, approvers, isC
           By signing above, I confirm that I am authorized to approve this {isChangeOrder ? 'change order' : 'work order'}
           and agree to the {isChangeOrder ? 'additional hours and costs' : 'scope and estimated costs'} outlined above.
         </p>
-
-        {/* Submit */}
-        <Button
-          onClick={handleSubmit}
-          isLoading={isPending}
-          disabled={!canSubmit}
-          className="w-full"
-          size="lg"
-        >
-          Submit Approval
-        </Button>
       </CardContent>
     </Card>
   );
