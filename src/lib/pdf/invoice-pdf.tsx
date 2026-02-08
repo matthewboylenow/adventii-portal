@@ -6,21 +6,24 @@ import {
   StyleSheet,
   Font,
 } from '@react-pdf/renderer';
+import path from 'path';
 
-// Register fonts (using system fonts for simplicity)
+// Register bundled TTF fonts (avoids network fetches in serverless)
+const fontsDir = path.join(process.cwd(), 'public', 'fonts');
+
 Font.register({
   family: 'Inter',
   fonts: [
     {
-      src: 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuLyfAZ9hjp-Ek-_EeA.woff2',
+      src: path.join(fontsDir, 'Inter-Regular.ttf'),
       fontWeight: 400,
     },
     {
-      src: 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuI6fAZ9hjp-Ek-_EeA.woff2',
+      src: path.join(fontsDir, 'Inter-SemiBold.ttf'),
       fontWeight: 600,
     },
     {
-      src: 'https://fonts.gstatic.com/s/inter/v13/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuFuYAZ9hjp-Ek-_EeA.woff2',
+      src: path.join(fontsDir, 'Inter-Bold.ttf'),
       fontWeight: 700,
     },
   ],

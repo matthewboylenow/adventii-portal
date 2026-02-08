@@ -8,8 +8,10 @@ import Image from 'next/image';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
 import { StatusBadge } from '@/components/ui/status-badge';
 import { formatCurrency, formatShortDate, formatDate, formatTime } from '@/lib/utils';
-import { Pencil, Send, Trash2, Download, CreditCard, CheckCircle, FileText } from 'lucide-react';
-import { sendInvoice, deleteInvoice } from '@/app/actions/invoices';
+import { Pencil, Trash2, Download, CreditCard, CheckCircle, FileText } from 'lucide-react';
+import { deleteInvoice } from '@/app/actions/invoices';
+import { SendInvoiceDialog } from '@/components/invoices/send-invoice-dialog';
+import { InvoiceCommentsSection } from '@/components/invoices/invoice-comments-section';
 
 interface InvoicePageProps {
   params: Promise<{ id: string }>;
@@ -110,17 +112,13 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
                   Edit
                 </Button>
               </Link>
-              <form
-                action={async () => {
-                  'use server';
-                  await sendInvoice(id);
-                }}
-              >
-                <Button size="sm">
-                  <Send className="h-4 w-4 mr-2" />
-                  Send Invoice
-                </Button>
-              </form>
+              <SendInvoiceDialog
+                invoiceId={id}
+                invoiceNumber={invoice.invoiceNumber}
+                orgEmail={org?.email || null}
+                orgName={org?.name || 'Client'}
+                amountDue={formatCurrency(invoice.amountDue)}
+              />
             </>
           )}
           {canPayNow && (
@@ -410,6 +408,9 @@ export default async function InvoicePage({ params }: InvoicePageProps) {
           </CardContent>
         </Card>
       )}
+
+      {/* Questions & Comments */}
+      <InvoiceCommentsSection invoiceId={id} />
 
       {/* Internal Notes (Adventii only) */}
       {isStaff && invoice.internalNotes && (

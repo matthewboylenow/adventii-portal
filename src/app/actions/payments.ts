@@ -1,8 +1,8 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { invoices, payments, organizations } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { invoices, payments, organizations, invoiceReminders } from '@/lib/db/schema';
+import { eq, and, isNull } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { getCurrentUser, canPay } from '@/lib/auth';
 import { getStripe } from '@/lib/stripe';
@@ -136,6 +136,20 @@ export async function recordPayment(
         updatedAt: new Date(),
       })
       .where(eq(invoices.id, invoiceId));
+
+    // Cancel pending reminders if paid in full
+    if (isPaidInFull) {
+      await db
+        .update(invoiceReminders)
+        .set({ cancelled: true })
+        .where(
+          and(
+            eq(invoiceReminders.invoiceId, invoiceId),
+            eq(invoiceReminders.cancelled, false),
+            isNull(invoiceReminders.sentAt)
+          )
+        );
+    }
   }
 
   revalidatePath('/invoices');

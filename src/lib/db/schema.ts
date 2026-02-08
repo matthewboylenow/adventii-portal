@@ -109,6 +109,12 @@ export const discountTypeEnum = pgEnum('discount_type', [
   'percentage',
 ]);
 
+export const reminderTypeEnum = pgEnum('reminder_type', [
+  '3day',
+  '7day',
+  '10day',
+]);
+
 // ============================================================================
 // ORGANIZATIONS (Multi-tenant support)
 // ============================================================================
@@ -524,6 +530,52 @@ export const payments = pgTable('payments', {
 });
 
 // ============================================================================
+// INVOICE COMMENTS
+// ============================================================================
+
+export const invoiceComments = pgTable('invoice_comments', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id).notNull(),
+  lineItemId: uuid('line_item_id').references(() => invoiceLineItems.id),
+
+  authorName: varchar('author_name', { length: 255 }).notNull(),
+  authorEmail: varchar('author_email', { length: 255 }).notNull(),
+  authorUserId: uuid('author_user_id').references(() => users.id),
+
+  content: text('content').notNull(),
+  parentId: uuid('parent_id'),
+  isInternal: boolean('is_internal').notNull().default(false),
+  isRead: boolean('is_read').notNull().default(false),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('invoice_comments_invoice_idx').on(table.invoiceId),
+  index('invoice_comments_parent_idx').on(table.parentId),
+]);
+
+// ============================================================================
+// INVOICE REMINDERS
+// ============================================================================
+
+export const invoiceReminders = pgTable('invoice_reminders', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  invoiceId: uuid('invoice_id').references(() => invoices.id).notNull(),
+
+  reminderType: reminderTypeEnum('reminder_type').notNull(),
+  scheduledDate: timestamp('scheduled_date').notNull(),
+  sentAt: timestamp('sent_at'),
+  cancelled: boolean('cancelled').notNull().default(false),
+
+  recipientEmail: varchar('recipient_email', { length: 255 }).notNull(),
+  ccEmails: text('cc_emails').array(),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => [
+  index('invoice_reminders_scheduled_idx').on(table.scheduledDate),
+  index('invoice_reminders_invoice_idx').on(table.invoiceId),
+]);
+
+// ============================================================================
 // RELATIONS
 // ============================================================================
 
@@ -647,6 +699,8 @@ export const invoicesRelations = relations(invoices, ({ one, many }) => ({
   payments: many(payments),
   workOrders: many(workOrders),
   viewTokens: many(invoiceViewTokens),
+  reminders: many(invoiceReminders),
+  comments: many(invoiceComments),
 }));
 
 export const invoiceViewTokensRelations = relations(invoiceViewTokens, ({ one }) => ({
@@ -675,6 +729,28 @@ export const paymentsRelations = relations(payments, ({ one }) => ({
   paidBy: one(users, {
     fields: [payments.paidById],
     references: [users.id],
+  }),
+}));
+
+export const invoiceCommentsRelations = relations(invoiceComments, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceComments.invoiceId],
+    references: [invoices.id],
+  }),
+  lineItem: one(invoiceLineItems, {
+    fields: [invoiceComments.lineItemId],
+    references: [invoiceLineItems.id],
+  }),
+  author: one(users, {
+    fields: [invoiceComments.authorUserId],
+    references: [users.id],
+  }),
+}));
+
+export const invoiceRemindersRelations = relations(invoiceReminders, ({ one }) => ({
+  invoice: one(invoices, {
+    fields: [invoiceReminders.invoiceId],
+    references: [invoices.id],
   }),
 }));
 
@@ -738,3 +814,9 @@ export type NewWorkOrderSeries = typeof workOrderSeries.$inferInsert;
 
 export type InvoiceViewToken = typeof invoiceViewTokens.$inferSelect;
 export type NewInvoiceViewToken = typeof invoiceViewTokens.$inferInsert;
+
+export type InvoiceReminder = typeof invoiceReminders.$inferSelect;
+export type NewInvoiceReminder = typeof invoiceReminders.$inferInsert;
+
+export type InvoiceComment = typeof invoiceComments.$inferSelect;
+export type NewInvoiceComment = typeof invoiceComments.$inferInsert;

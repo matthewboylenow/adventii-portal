@@ -1,4 +1,5 @@
 import { getInvoiceByToken } from '@/app/actions/invoices';
+import { getInvoiceCommentsByToken } from '@/app/actions/invoice-comments';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { StatusBadge } from '@/components/ui/status-badge';
 import {
@@ -9,6 +10,7 @@ import {
   getEventTypeLabel,
 } from '@/lib/utils';
 import { AlertCircle, CheckCircle, Clock, FileText } from 'lucide-react';
+import { ClientCommentsSection } from '@/components/invoices/client-comments-section';
 
 interface InvoiceViewPageProps {
   params: Promise<{ token: string }>;
@@ -35,6 +37,9 @@ export default async function InvoiceViewPage({ params }: InvoiceViewPageProps) 
   }
 
   const { invoice, organization, workOrderDetails } = data;
+
+  // Fetch comments for this invoice via token
+  const comments = await getInvoiceCommentsByToken(token);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -311,6 +316,13 @@ export default async function InvoiceViewPage({ params }: InvoiceViewPageProps) 
             </CardContent>
           </Card>
         )}
+
+        {/* Questions & Comments */}
+        <ClientCommentsSection
+          invoiceId={invoice.id}
+          token={token}
+          initialComments={comments}
+        />
 
         {/* Footer */}
         <div className="text-center py-6 text-gray-400 text-sm">

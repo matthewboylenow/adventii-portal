@@ -6,8 +6,9 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/api/webhooks(.*)',
-  '/approve/(.*)', // Public approval pages accessed via token
-  '/invoice/(.*)', // Public invoice view accessed via token
+  '/api/cron(.*)',  // Cron routes protected by CRON_SECRET
+  '/approve/(.*)',  // Public approval pages accessed via token
+  '/invoice/(.*)',  // Public invoice view accessed via token
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

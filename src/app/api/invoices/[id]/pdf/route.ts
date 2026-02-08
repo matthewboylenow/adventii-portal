@@ -95,8 +95,11 @@ export async function GET(
     });
   } catch (error) {
     console.error('PDF generation error:', error);
+    const message = process.env.NODE_ENV === 'development' && error instanceof Error
+      ? error.message
+      : 'Failed to generate PDF';
     return NextResponse.json(
-      { error: 'Failed to generate PDF' },
+      { error: message },
       { status: 500 }
     );
   }

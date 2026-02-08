@@ -5,6 +5,7 @@ import {
   invoices,
   invoiceLineItems,
   invoiceViewTokens,
+  invoiceReminders,
   workOrders,
   organizations,
   approvals,
@@ -276,7 +277,15 @@ export async function updateInvoice(
   return { success: true };
 }
 
-export async function sendInvoice(id: string) {
+export interface SendInvoiceInput {
+  recipientEmail?: string;
+  cc?: string[];
+  subject?: string;
+  message?: string;
+  reminderDays?: number[];
+}
+
+export async function sendInvoice(id: string, input?: SendInvoiceInput) {
   const user = await requireAdventiiStaff();
 
   const [invoice] = await db
@@ -324,15 +333,16 @@ export async function sendInvoice(id: string) {
     })
     .where(eq(invoices.id, id));
 
-  // Send email notification if organization has email
-  if (org?.email) {
+  // Send email notification
+  const recipientEmail = input?.recipientEmail || org?.email;
+  if (recipientEmail) {
     try {
       await sendInvoiceEmail({
         invoiceNumber: invoice.invoiceNumber,
         invoiceId: invoice.id,
-        recipientEmail: org.email,
-        recipientName: org.name,
-        organizationName: org.name,
+        recipientEmail,
+        recipientName: org?.name || 'Client',
+        organizationName: org?.name || 'Client',
         amountDue: formatCurrency(invoice.amountDue),
         dueDate: invoice.dueDate ? formatDate(invoice.dueDate) : undefined,
         lineItems: lineItems.map((li) => ({
@@ -342,10 +352,40 @@ export async function sendInvoice(id: string) {
           amount: li.amount,
         })),
         viewToken,
+        cc: input?.cc,
+        customSubject: input?.subject,
+        customMessage: input?.message,
       });
     } catch (emailError) {
       console.error('Failed to send invoice email:', emailError);
       // Don't fail the whole operation if email fails
+    }
+  }
+
+  // Create reminder records if requested
+  const reminderDaysList = input?.reminderDays || [];
+  if (reminderDaysList.length > 0 && recipientEmail) {
+    const reminderTypeMap: Record<number, '3day' | '7day' | '10day'> = {
+      3: '3day',
+      7: '7day',
+      10: '10day',
+    };
+    const ccList = input?.cc || [];
+
+    for (const day of reminderDaysList) {
+      const reminderType = reminderTypeMap[day];
+      if (!reminderType) continue;
+
+      const scheduledDate = new Date();
+      scheduledDate.setDate(scheduledDate.getDate() + day);
+
+      await db.insert(invoiceReminders).values({
+        invoiceId: id,
+        reminderType,
+        scheduledDate,
+        recipientEmail,
+        ccEmails: ccList.length > 0 ? ccList : null,
+      });
     }
   }
 
