@@ -282,16 +282,18 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
           </CardContent>
         </Card>
 
-        {/* Estimate & Cost (Collapsible) */}
-        <EstimateSection
-          estimateType={workOrder.estimateType}
-          estimatedHoursMin={workOrder.estimatedHoursMin}
-          estimatedHoursMax={workOrder.estimatedHoursMax}
-          estimatedHoursFixed={workOrder.estimatedHoursFixed}
-          estimatedHoursNTE={workOrder.estimatedHoursNTE}
-          hourlyRateSnapshot={workOrder.hourlyRateSnapshot}
-          actualHours={workOrder.actualHours || '0'}
-        />
+        {/* Estimate & Cost (Collapsible) - only show if pre-approval or estimate data exists */}
+        {(workOrder.needsPreApproval || workOrder.estimatedHoursMin || workOrder.estimatedHoursMax || workOrder.estimatedHoursFixed || workOrder.estimatedHoursNTE) && (
+          <EstimateSection
+            estimateType={workOrder.estimateType}
+            estimatedHoursMin={workOrder.estimatedHoursMin}
+            estimatedHoursMax={workOrder.estimatedHoursMax}
+            estimatedHoursFixed={workOrder.estimatedHoursFixed}
+            estimatedHoursNTE={workOrder.estimatedHoursNTE}
+            hourlyRateSnapshot={workOrder.hourlyRateSnapshot}
+            actualHours={workOrder.actualHours || '0'}
+          />
+        )}
 
         {/* Scope of Work */}
         <Card>

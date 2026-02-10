@@ -17,7 +17,7 @@ import { revalidatePath } from 'next/cache';
 import { requireAdventiiStaff, getCurrentUser, canCreateInvoices } from '@/lib/auth';
 import { sendInvoiceEmail } from '@/lib/email';
 import { formatCurrency, formatDate } from '@/lib/utils';
-import { getBillingPeriodForDate, getCurrentBillingPeriod, getNextBillingPeriod } from '@/lib/billing-periods';
+import { getCurrentBillingPeriod, getNextBillingPeriod, countHalfPeriodsInRange } from '@/lib/billing-periods';
 import { randomBytes } from 'crypto';
 import { z } from 'zod';
 
@@ -571,22 +571,24 @@ export async function getOrCreateDraftForPeriod(periodStart: Date, periodEnd: Da
   let subtotal = 0;
   let sortOrder = 0;
 
-  // Add retainer line item (split 50/50)
+  // Add retainer line item (proportional to half-periods in range)
   const retainerAmount = parseFloat(org.monthlyRetainer || '0');
   if (retainerAmount > 0) {
-    const halfRetainer = retainerAmount / 2;
-    const period = getBillingPeriodForDate(periodStart);
+    const halfPeriodCount = countHalfPeriodsInRange(periodStart, periodEnd);
+    const proportionalRetainer = (retainerAmount / 2) * halfPeriodCount;
+    const startLabel = periodStart.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    const endLabel = periodEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
     lineItemsData.push({
-      description: `Monthly Retainer (${period.label})`,
+      description: `Monthly Retainer (${startLabel} - ${endLabel})`,
       quantity: '1',
-      unitPrice: String(halfRetainer),
-      amount: String(halfRetainer),
+      unitPrice: String(proportionalRetainer),
+      amount: String(proportionalRetainer),
       workOrderId: null,
       isRetainer: true,
       isCustom: false,
       sortOrder: sortOrder++,
     });
-    subtotal += halfRetainer;
+    subtotal += proportionalRetainer;
   }
 
   // Add work order line items
@@ -686,10 +688,11 @@ export async function getProjectedAmountForPeriod(periodStart: Date, periodEnd: 
 
   let projected = 0;
 
-  // Add half the retainer
+  // Add proportional retainer
   const retainer = parseFloat(org?.monthlyRetainer || '0');
   if (retainer > 0) {
-    projected += retainer / 2;
+    const halfPeriodCount = countHalfPeriodsInRange(periodStart, periodEnd);
+    projected += (retainer / 2) * halfPeriodCount;
   }
 
   // Add work order totals
@@ -954,6 +957,20 @@ export async function getBillingPeriodData() {
     (inv) => inv.periodStart?.getTime() === next.start.getTime()
   );
 
+  // Check for uninvoiced completed work orders before the current period
+  const priorWorkOrders = await db
+    .select({ id: workOrders.id })
+    .from(workOrders)
+    .where(
+      and(
+        eq(workOrders.organizationId, user.organizationId),
+        eq(workOrders.status, 'completed'),
+        isNull(workOrders.invoiceId),
+        lt(workOrders.eventDate, current.start)
+      )
+    )
+    .limit(1);
+
   return {
     current: {
       period: current,
@@ -965,6 +982,7 @@ export async function getBillingPeriodData() {
       ...nextProjection,
       invoice: nextInvoice || null,
     },
+    hasUninvoicedPriorWork: priorWorkOrders.length > 0,
   };
 }
 
@@ -998,7 +1016,8 @@ async function getProjectedAmountForPeriodInternal(
   let projected = 0;
   const retainer = parseFloat(org?.monthlyRetainer || '0');
   if (retainer > 0) {
-    projected += retainer / 2;
+    const halfPeriodCount = countHalfPeriodsInRange(periodStart, periodEnd);
+    projected += (retainer / 2) * halfPeriodCount;
   }
 
   for (const wo of periodWorkOrders) {

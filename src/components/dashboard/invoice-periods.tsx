@@ -6,7 +6,7 @@ import { StatusBadge } from '@/components/ui/status-badge';
 import { formatCurrency } from '@/lib/utils';
 import type { BillingPeriod } from '@/lib/billing-periods';
 import type { Invoice } from '@/lib/db/schema';
-import { Calendar, DollarSign, FileText, Plus, RefreshCw } from 'lucide-react';
+import { Calendar, DollarSign, FileText, Plus, RefreshCw, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { getOrCreateDraftForPeriod, addCompletedWorkToInvoice } from '@/app/actions/invoices';
@@ -21,6 +21,7 @@ interface PeriodData {
 interface InvoicePeriodsProps {
   current: PeriodData;
   next: PeriodData;
+  hasUninvoicedPriorWork?: boolean;
 }
 
 function PeriodCard({ data, label }: { data: PeriodData; label: string }) {
@@ -126,7 +127,92 @@ function PeriodCard({ data, label }: { data: PeriodData; label: string }) {
   );
 }
 
-export function InvoicePeriods({ current, next }: InvoicePeriodsProps) {
+function CustomPeriodSection({ autoShow }: { autoShow: boolean }) {
+  const [showCustom, setShowCustom] = useState(autoShow);
+  const [loading, setLoading] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const router = useRouter();
+
+  async function handleCreateCustomDraft() {
+    if (!startDate || !endDate) return;
+    setLoading(true);
+    try {
+      const result = await getOrCreateDraftForPeriod(
+        new Date(startDate + 'T00:00:00'),
+        new Date(endDate + 'T23:59:59')
+      );
+      router.push(`/invoices/${result.invoice.id}`);
+    } catch (err) {
+      console.error('Failed to create custom draft:', err);
+      setLoading(false);
+    }
+  }
+
+  if (!showCustom) {
+    return (
+      <button
+        onClick={() => setShowCustom(true)}
+        className="w-full flex items-center justify-center gap-2 py-2 text-sm text-gray-500 hover:text-brand-purple transition-colors"
+      >
+        <ChevronRight className="h-4 w-4" />
+        Custom Period
+      </button>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <button
+        onClick={() => setShowCustom(false)}
+        className="flex items-center gap-2 text-sm text-gray-500 hover:text-brand-purple transition-colors"
+      >
+        <ChevronDown className="h-4 w-4" />
+        Custom Period
+      </button>
+
+      {autoShow && (
+        <div className="flex items-start gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <AlertTriangle className="h-4 w-4 text-yellow-600 mt-0.5 shrink-0" />
+          <p className="text-sm text-yellow-800">
+            There are completed work orders from before the current billing period that haven&apos;t been invoiced yet. Use a custom period to include them.
+          </p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Start Date</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
+            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">End Date</label>
+          <input
+            type="date"
+            value={endDate}
+            onChange={(e) => setEndDate(e.target.value)}
+            className="w-full px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent"
+          />
+        </div>
+      </div>
+      <button
+        onClick={handleCreateCustomDraft}
+        disabled={loading || !startDate || !endDate}
+        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm border border-brand-purple text-brand-purple rounded-lg hover:bg-brand-purple-50 transition-colors disabled:opacity-50"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        {loading ? 'Creating...' : 'Create Custom Draft'}
+      </button>
+    </div>
+  );
+}
+
+export function InvoicePeriods({ current, next, hasUninvoicedPriorWork }: InvoicePeriodsProps) {
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
@@ -141,11 +227,12 @@ export function InvoicePeriods({ current, next }: InvoicePeriodsProps) {
           All invoices
         </Link>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <PeriodCard data={current} label="Current Period" />
           <PeriodCard data={next} label="Next Period" />
         </div>
+        <CustomPeriodSection autoShow={hasUninvoicedPriorWork || false} />
       </CardContent>
     </Card>
   );

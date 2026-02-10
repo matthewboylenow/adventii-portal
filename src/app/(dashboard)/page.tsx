@@ -216,6 +216,7 @@ export default async function DashboardPage() {
         <InvoicePeriods
           current={billingPeriodData.current}
           next={billingPeriodData.next}
+          hasUninvoicedPriorWork={billingPeriodData.hasUninvoicedPriorWork}
         />
       )}
 

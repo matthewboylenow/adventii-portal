@@ -90,6 +90,7 @@ export default async function EditWorkOrderPage({ params }: EditWorkOrderPagePro
     requestedById: workOrder.requestedById || (workOrder.requestedByName ? 'other' : ''),
     requestedByName: workOrder.requestedByName || '',
     authorizedApproverId: workOrder.authorizedApproverId || '',
+    needsPreApproval: workOrder.needsPreApproval,
     estimateType: workOrder.estimateType,
     estimatedHoursMin: workOrder.estimatedHoursMin || '',
     estimatedHoursMax: workOrder.estimatedHoursMax || '',

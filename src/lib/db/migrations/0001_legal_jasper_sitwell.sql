@@ -1,0 +1,1 @@
+ALTER TABLE "work_orders" ADD COLUMN "needs_pre_approval" boolean DEFAULT false NOT NULL;

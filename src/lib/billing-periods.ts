@@ -64,6 +64,29 @@ export function getNextBillingPeriod(): BillingPeriod {
   return getBillingPeriodForDate(nextStart);
 }
 
+/**
+ * Count how many standard half-periods (1-15 or 16-end) fall within a date range.
+ * Used for proportional retainer calculation on custom/multi-period invoices.
+ */
+export function countHalfPeriodsInRange(start: Date, end: Date): number {
+  let count = 0;
+  let cursor = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+
+  while (cursor <= end) {
+    const period = getBillingPeriodForDate(cursor);
+    // Only count if this period overlaps with the range
+    if (period.start >= start || period.end <= end) {
+      count++;
+    }
+    // Move to next period
+    const nextStart = new Date(period.end);
+    nextStart.setDate(nextStart.getDate() + 1);
+    cursor = nextStart;
+  }
+
+  return count;
+}
+
 export function getPeriodStartEnd(periodKey: string): { start: Date; end: Date } {
   const date = new Date(periodKey + 'T00:00:00');
   const period = getBillingPeriodForDate(date);

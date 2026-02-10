@@ -319,6 +319,9 @@ export const workOrders = pgTable('work_orders', {
   scopeServiceIds: uuid('scope_service_ids').array(),
   customScope: text('custom_scope'),
 
+  // Pre-Approval flag (controls whether estimate is shown/required)
+  needsPreApproval: boolean('needs_pre_approval').notNull().default(false),
+
   // Estimate
   estimateType: estimateTypeEnum('estimate_type').notNull().default('range'),
   estimatedHoursMin: decimal('estimated_hours_min', { precision: 5, scale: 2 }),

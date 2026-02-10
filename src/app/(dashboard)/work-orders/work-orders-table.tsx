@@ -51,6 +51,10 @@ export function WorkOrdersTable({ workOrders, canBulkSignOff }: WorkOrdersTableP
   const selectableIds = new Set(selectableWorkOrders.map((wo) => wo.id));
 
   const getEstimateDisplay = (wo: WorkOrder) => {
+    // If no estimate data exists, show dash
+    if (!wo.estimatedHoursMin && !wo.estimatedHoursMax && !wo.estimatedHoursFixed && !wo.estimatedHoursNTE) {
+      return '-';
+    }
     switch (wo.estimateType) {
       case 'range':
         return `${wo.estimatedHoursMin || 0} - ${wo.estimatedHoursMax || 0} hrs`;
