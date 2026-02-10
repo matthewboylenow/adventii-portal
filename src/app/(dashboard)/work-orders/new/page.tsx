@@ -1,12 +1,17 @@
 import { getCurrentUser, canCreateWorkOrders } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { serviceTemplates, users } from '@/lib/db/schema';
+import { serviceTemplates, users, workOrders } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { WorkOrderForm } from '@/components/forms/work-order-form';
 
-export default async function NewWorkOrderPage() {
+interface NewWorkOrderPageProps {
+  searchParams: Promise<{ from?: string }>;
+}
+
+export default async function NewWorkOrderPage({ searchParams }: NewWorkOrderPageProps) {
   const user = await getCurrentUser();
+  const { from } = await searchParams;
 
   if (!user) {
     redirect('/sign-in');
@@ -51,16 +56,69 @@ export default async function NewWorkOrderPage() {
   // Filter approvers
   const approvers = allStaff.filter((s) => s.isApprover);
 
+  // If duplicating from an existing work order, fetch its data
+  let defaultValues: Record<string, unknown> | undefined;
+  let isDuplicate = false;
+
+  if (from) {
+    const [sourceWO] = await db
+      .select()
+      .from(workOrders)
+      .where(
+        and(
+          eq(workOrders.id, from),
+          eq(workOrders.organizationId, user.organizationId)
+        )
+      )
+      .limit(1);
+
+    if (sourceWO) {
+      isDuplicate = true;
+      defaultValues = {
+        eventName: sourceWO.eventName,
+        eventDate: '', // Clear date so user picks a new one
+        startTime: sourceWO.startTime?.toISOString().split('T')[1]?.slice(0, 5) || '',
+        endTime: sourceWO.endTime?.toISOString().split('T')[1]?.slice(0, 5) || '',
+        venue: sourceWO.venue,
+        venueOther: sourceWO.venueOther || '',
+        eventType: sourceWO.eventType,
+        eventTypeOther: sourceWO.eventTypeOther || '',
+        requestedById: sourceWO.requestedById || (sourceWO.requestedByName ? 'other' : ''),
+        requestedByName: sourceWO.requestedByName || '',
+        authorizedApproverId: sourceWO.authorizedApproverId || '',
+        needsPreApproval: sourceWO.needsPreApproval,
+        estimateType: sourceWO.estimateType,
+        estimatedHoursMin: sourceWO.estimatedHoursMin || '',
+        estimatedHoursMax: sourceWO.estimatedHoursMax || '',
+        estimatedHoursFixed: sourceWO.estimatedHoursFixed || '',
+        estimatedHoursNTE: sourceWO.estimatedHoursNTE || '',
+        scopeServiceIds: sourceWO.scopeServiceIds || [],
+        customScope: sourceWO.customScope || '',
+        notes: sourceWO.notes || '',
+        internalNotes: sourceWO.internalNotes || '',
+      };
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">New Work Order</h1>
+        <h1 className="text-2xl font-bold text-gray-900">
+          {isDuplicate ? 'Duplicate Work Order' : 'New Work Order'}
+        </h1>
         <p className="text-gray-600 mt-1">
-          Create a new work order for an upcoming event
+          {isDuplicate
+            ? 'Creating a copy — update the date and any other details'
+            : 'Create a new work order for an upcoming event'}
         </p>
       </div>
 
-      <WorkOrderForm services={services} staff={allStaff} approvers={approvers} />
+      <WorkOrderForm
+        services={services}
+        staff={allStaff}
+        approvers={approvers}
+        defaultValues={defaultValues}
+      />
     </div>
   );
 }

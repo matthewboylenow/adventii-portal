@@ -1,4 +1,4 @@
-import { getCurrentUser, canEditWorkOrders, canDeleteWorkOrders, isAdventiiUser } from '@/lib/auth';
+import { getCurrentUser, canEditWorkOrders, canDeleteWorkOrders, canCreateWorkOrders, isAdventiiUser } from '@/lib/auth';
 import { redirect, notFound } from 'next/navigation';
 import { db } from '@/lib/db';
 import {
@@ -10,6 +10,7 @@ import {
   incidentReports,
   serviceTemplates,
   approvalTokens,
+  workOrderSeries,
 } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import Link from 'next/link';
@@ -29,8 +30,10 @@ import {
   CheckCircle,
   AlertTriangle,
   ExternalLink,
+  Copy,
 } from 'lucide-react';
 import { WorkOrderActions } from './work-order-actions';
+import { SeriesActions } from './series-actions';
 import { ChangeOrdersSection } from './change-orders-section';
 import { TimeLogsSection } from './time-logs-section';
 import { EstimateSection } from './estimate-section';
@@ -141,6 +144,33 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
     .from(approvalTokens)
     .where(eq(approvalTokens.workOrderId, workOrder.id));
 
+  // Get series info if part of a series
+  let seriesInfo: { name: string; id: string } | null = null;
+  let siblingWorkOrders: { id: string; eventName: string; eventDate: Date; startTime: Date | null; endTime: Date | null; status: string }[] = [];
+  if (workOrder.seriesId) {
+    const [series] = await db
+      .select({ id: workOrderSeries.id, name: workOrderSeries.name })
+      .from(workOrderSeries)
+      .where(eq(workOrderSeries.id, workOrder.seriesId))
+      .limit(1);
+    seriesInfo = series || null;
+
+    if (seriesInfo) {
+      siblingWorkOrders = await db
+        .select({
+          id: workOrders.id,
+          eventName: workOrders.eventName,
+          eventDate: workOrders.eventDate,
+          startTime: workOrders.startTime,
+          endTime: workOrders.endTime,
+          status: workOrders.status,
+        })
+        .from(workOrders)
+        .where(eq(workOrders.seriesId, workOrder.seriesId!))
+        .orderBy(workOrders.eventDate);
+    }
+  }
+
   // Calculate estimated max for change order comparison
   const getEstimatedMax = () => {
     switch (workOrder.estimateType) {
@@ -157,6 +187,7 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
 
   const showEditButton = canEditWorkOrders(user) && ['draft', 'in_progress', 'pending_approval'].includes(workOrder.status);
   const showDeleteButton = canDeleteWorkOrders(user) && ['draft', 'in_progress'].includes(workOrder.status);
+  const showDuplicateButton = canCreateWorkOrders(user);
   const isStaff = isAdventiiUser(user);
 
   return (
@@ -173,6 +204,14 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
           </p>
         </div>
         <div className="flex gap-2">
+          {showDuplicateButton && (
+            <Link href={`/work-orders/new?from=${workOrder.id}`}>
+              <Button variant="outline" size="sm">
+                <Copy className="h-4 w-4 mr-2" />
+                Duplicate
+              </Button>
+            </Link>
+          )}
           {showEditButton && (
             <Link href={`/work-orders/${workOrder.id}/edit`}>
               <Button variant="outline" size="sm">
@@ -183,6 +222,64 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
           )}
         </div>
       </div>
+
+      {/* Series Info */}
+      {seriesInfo && (
+        <Card className="border-brand-purple-100 bg-brand-purple-50/30">
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="font-medium text-gray-900">
+                  Series: {seriesInfo.name}
+                </p>
+                <p className="text-sm text-gray-600">
+                  {siblingWorkOrders.length} work order{siblingWorkOrders.length !== 1 ? 's' : ''} in this series
+                </p>
+              </div>
+              <SeriesActions
+                workOrderId={workOrder.id}
+                seriesId={seriesInfo.id}
+                seriesName={seriesInfo.name}
+                siblingWorkOrders={siblingWorkOrders.map(wo => ({
+                  id: wo.id,
+                  eventDate: wo.eventDate.toISOString(),
+                  startTime: wo.startTime?.toISOString() || null,
+                  endTime: wo.endTime?.toISOString() || null,
+                  status: wo.status,
+                }))}
+              />
+            </div>
+            {siblingWorkOrders.length > 1 && (
+              <div className="mt-3 pt-3 border-t border-brand-purple-100 space-y-1">
+                {siblingWorkOrders.map((wo) => (
+                  <div key={wo.id} className="flex items-center gap-2 text-sm">
+                    {wo.id === workOrder.id ? (
+                      <span className="font-medium text-brand-purple">
+                        {formatShortDate(wo.eventDate)}
+                        {wo.startTime && ` ${formatDateTime(wo.startTime)}`}
+                        {wo.endTime && ` - ${formatDateTime(wo.endTime)}`}
+                        {' (current)'}
+                      </span>
+                    ) : (
+                      <Link href={`/work-orders/${wo.id}`} className="text-brand-purple hover:underline">
+                        {formatShortDate(wo.eventDate)}
+                        {wo.startTime && ` ${formatDateTime(wo.startTime)}`}
+                        {wo.endTime && ` - ${formatDateTime(wo.endTime)}`}
+                      </Link>
+                    )}
+                    <StatusBadge status={wo.status as 'draft' | 'pending_approval' | 'approved' | 'in_progress' | 'completed' | 'invoiced' | 'paid'} />
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Add to Series (when not in one) */}
+      {!seriesInfo && isStaff && (
+        <SeriesActions workOrderId={workOrder.id} seriesId={null} seriesName={null} siblingWorkOrders={[]} />
+      )}
 
       {/* Approval Link for Pending */}
       {workOrder.status === 'pending_approval' && approvalToken && (

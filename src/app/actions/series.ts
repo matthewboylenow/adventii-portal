@@ -37,6 +37,7 @@ const createSeriesSchema = z.object({
   requestedById: z.string().optional(),
   requestedByName: z.string().optional(),
   authorizedApproverId: z.string().optional(),
+  needsPreApproval: z.boolean().optional(),
   estimateType: z.enum(['range', 'fixed', 'not_to_exceed']),
   estimatedHoursMin: z.string().optional(),
   estimatedHoursMax: z.string().optional(),
@@ -111,11 +112,12 @@ export async function createSeries(data: CreateSeriesInput) {
         requestedByName:
           validatedData.requestedById === 'other' ? validatedData.requestedByName : null,
         authorizedApproverId: validatedData.authorizedApproverId || null,
+        needsPreApproval: validatedData.needsPreApproval || false,
         estimateType: validatedData.estimateType,
-        estimatedHoursMin: validatedData.estimatedHoursMin || null,
-        estimatedHoursMax: validatedData.estimatedHoursMax || null,
-        estimatedHoursFixed: validatedData.estimatedHoursFixed || null,
-        estimatedHoursNTE: validatedData.estimatedHoursNTE || null,
+        estimatedHoursMin: validatedData.needsPreApproval ? (validatedData.estimatedHoursMin || null) : null,
+        estimatedHoursMax: validatedData.needsPreApproval ? (validatedData.estimatedHoursMax || null) : null,
+        estimatedHoursFixed: validatedData.needsPreApproval ? (validatedData.estimatedHoursFixed || null) : null,
+        estimatedHoursNTE: validatedData.needsPreApproval ? (validatedData.estimatedHoursNTE || null) : null,
         scopeServiceIds: validatedData.scopeServiceIds || [],
         customScope: validatedData.customScope || null,
         notes: validatedData.notes || null,
@@ -263,4 +265,83 @@ export async function deleteSeries(seriesId: string) {
   revalidatePath('/work-orders');
   revalidatePath('/series');
   redirect('/work-orders');
+}
+
+export async function assignToSeries(
+  workOrderIds: string[],
+  seriesId?: string,
+  newSeriesName?: string
+) {
+  const user = await requireAdventiiStaff();
+
+  let targetSeriesId = seriesId;
+
+  // Create a new series if no existing one provided
+  if (!targetSeriesId && newSeriesName) {
+    const [newSeries] = await db
+      .insert(workOrderSeries)
+      .values({
+        organizationId: user.organizationId,
+        name: newSeriesName,
+      })
+      .returning();
+    targetSeriesId = newSeries.id;
+  }
+
+  if (!targetSeriesId) {
+    throw new Error('Either seriesId or newSeriesName is required');
+  }
+
+  // Verify series belongs to org
+  const [series] = await db
+    .select()
+    .from(workOrderSeries)
+    .where(
+      and(
+        eq(workOrderSeries.id, targetSeriesId),
+        eq(workOrderSeries.organizationId, user.organizationId)
+      )
+    )
+    .limit(1);
+
+  if (!series) {
+    throw new Error('Series not found');
+  }
+
+  // Update work orders
+  for (const woId of workOrderIds) {
+    await db
+      .update(workOrders)
+      .set({ seriesId: targetSeriesId, updatedAt: new Date() })
+      .where(
+        and(
+          eq(workOrders.id, woId),
+          eq(workOrders.organizationId, user.organizationId)
+        )
+      );
+  }
+
+  revalidatePath('/work-orders');
+  revalidatePath('/series');
+
+  return { success: true, seriesId: targetSeriesId };
+}
+
+export async function removeFromSeries(workOrderId: string) {
+  const user = await requireAdventiiStaff();
+
+  await db
+    .update(workOrders)
+    .set({ seriesId: null, updatedAt: new Date() })
+    .where(
+      and(
+        eq(workOrders.id, workOrderId),
+        eq(workOrders.organizationId, user.organizationId)
+      )
+    );
+
+  revalidatePath('/work-orders');
+  revalidatePath('/series');
+
+  return { success: true };
 }

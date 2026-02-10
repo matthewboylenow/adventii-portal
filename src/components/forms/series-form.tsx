@@ -17,7 +17,7 @@ import {
 } from '@/components/ui';
 import { useTransition } from 'react';
 import { createSeries } from '@/app/actions/series';
-import { Plus, Trash2, Calendar } from 'lucide-react';
+import { Plus, Trash2, Calendar, Copy } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 const seriesSchema = z.object({
@@ -42,6 +42,7 @@ const seriesSchema = z.object({
   requestedById: z.string().optional(),
   requestedByName: z.string().optional(),
   authorizedApproverId: z.string().optional(),
+  needsPreApproval: z.boolean().optional(),
   estimateType: z.enum(['range', 'fixed', 'not_to_exceed']),
   estimatedHoursMin: z.string().optional(),
   estimatedHoursMax: z.string().optional(),
@@ -92,6 +93,7 @@ export function SeriesForm({ services, staff, approvers }: SeriesFormProps) {
     handleSubmit,
     watch,
     setValue,
+    getValues,
     formState: { errors },
   } = useForm<SeriesFormData>({
     resolver: zodResolver(seriesSchema),
@@ -114,6 +116,7 @@ export function SeriesForm({ services, staff, approvers }: SeriesFormProps) {
   const eventType = watch('eventType');
   const estimateType = watch('estimateType');
   const requestedById = watch('requestedById');
+  const needsPreApproval = watch('needsPreApproval');
   const selectedServices = watch('scopeServiceIds') || [];
 
   const venueOptions = [
@@ -249,7 +252,19 @@ export function SeriesForm({ services, staff, approvers }: SeriesFormProps) {
                 label="End Time"
                 {...register(`eventDates.${index}.endTime`)}
               />
-              <div className="flex items-end">
+              <div className="flex items-end gap-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  title="Duplicate this slot"
+                  onClick={() => {
+                    const current = getValues(`eventDates.${index}`);
+                    append({ date: current.date, startTime: '', endTime: '' });
+                  }}
+                  className="text-gray-500 hover:text-brand-purple"
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
                 <Button
                   type="button"
                   variant="ghost"
@@ -389,55 +404,71 @@ export function SeriesForm({ services, staff, approvers }: SeriesFormProps) {
         </CardContent>
       </Card>
 
-      {/* Time Estimate */}
+      {/* Pre-Approval & Estimate */}
       <Card>
         <CardHeader>
-          <CardTitle>Time Estimate (Per Event)</CardTitle>
+          <CardTitle>Pre-Approval (Per Event)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <Select
-            label="Estimate Type"
-            {...register('estimateType')}
-            options={estimateTypeOptions}
-          />
-
-          {estimateType === 'range' && (
-            <div className="grid grid-cols-2 gap-4">
-              <Input
-                type="number"
-                step="0.5"
-                label="Minimum Hours"
-                {...register('estimatedHoursMin')}
-                placeholder="1.5"
-              />
-              <Input
-                type="number"
-                step="0.5"
-                label="Maximum Hours"
-                {...register('estimatedHoursMax')}
-                placeholder="2.5"
-              />
+          <label className="flex items-center gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              {...register('needsPreApproval')}
+              className="h-4 w-4 text-brand-purple rounded border-gray-300 focus:ring-brand-purple"
+            />
+            <div>
+              <span className="text-sm font-medium text-gray-900">Needs Pre-Approval</span>
+              <p className="text-xs text-gray-500">Enable to show time estimate fields and require client approval before work begins</p>
             </div>
-          )}
+          </label>
 
-          {estimateType === 'fixed' && (
-            <Input
-              type="number"
-              step="0.5"
-              label="Fixed Hours"
-              {...register('estimatedHoursFixed')}
-              placeholder="1.5"
-            />
-          )}
+          {needsPreApproval && (
+            <div className="pt-3 border-t border-gray-200 space-y-4">
+              <Select
+                label="Estimate Type"
+                {...register('estimateType')}
+                options={estimateTypeOptions}
+              />
 
-          {estimateType === 'not_to_exceed' && (
-            <Input
-              type="number"
-              step="0.5"
-              label="Not-to-Exceed Hours"
-              {...register('estimatedHoursNTE')}
-              placeholder="3.0"
-            />
+              {estimateType === 'range' && (
+                <div className="grid grid-cols-2 gap-4">
+                  <Input
+                    type="number"
+                    step="0.5"
+                    label="Minimum Hours"
+                    {...register('estimatedHoursMin')}
+                    placeholder="1.5"
+                  />
+                  <Input
+                    type="number"
+                    step="0.5"
+                    label="Maximum Hours"
+                    {...register('estimatedHoursMax')}
+                    placeholder="2.5"
+                  />
+                </div>
+              )}
+
+              {estimateType === 'fixed' && (
+                <Input
+                  type="number"
+                  step="0.5"
+                  label="Fixed Hours"
+                  {...register('estimatedHoursFixed')}
+                  placeholder="1.5"
+                />
+              )}
+
+              {estimateType === 'not_to_exceed' && (
+                <Input
+                  type="number"
+                  step="0.5"
+                  label="Not-to-Exceed Hours"
+                  {...register('estimatedHoursNTE')}
+                  placeholder="3.0"
+                />
+              )}
+            </div>
           )}
         </CardContent>
       </Card>
