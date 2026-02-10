@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { workOrders, serviceTemplates, users } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
 import { WorkOrderForm } from '@/components/forms/work-order-form';
+import { toEasternDateString, toEasternTimeString } from '@/lib/utils';
 
 interface EditWorkOrderPageProps {
   params: Promise<{ id: string }>;
@@ -80,9 +81,9 @@ export default async function EditWorkOrderPage({ params }: EditWorkOrderPagePro
   // Format default values
   const defaultValues = {
     eventName: workOrder.eventName,
-    eventDate: workOrder.eventDate.toISOString().split('T')[0],
-    startTime: workOrder.startTime?.toISOString().split('T')[1]?.slice(0, 5) || '',
-    endTime: workOrder.endTime?.toISOString().split('T')[1]?.slice(0, 5) || '',
+    eventDate: toEasternDateString(workOrder.eventDate),
+    startTime: workOrder.startTime ? toEasternTimeString(workOrder.startTime) : '',
+    endTime: workOrder.endTime ? toEasternTimeString(workOrder.endTime) : '',
     venue: workOrder.venue,
     venueOther: workOrder.venueOther || '',
     eventType: workOrder.eventType,

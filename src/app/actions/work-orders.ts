@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { eq, and } from 'drizzle-orm';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
+import { parseEasternDate } from '@/lib/utils';
 
 const createWorkOrderSchema = z.object({
   eventName: z.string().min(1, 'Event name is required'),
@@ -57,13 +58,13 @@ export async function createWorkOrder(data: CreateWorkOrderInput) {
 
   const hourlyRate = org?.hourlyRate || '75.00';
 
-  // Combine date with time if provided
+  // Combine date with time if provided (interpret as Eastern time)
   const eventDateStr = validatedData.eventDate;
   const startDateTime = validatedData.startTime
-    ? new Date(`${eventDateStr}T${validatedData.startTime}:00`)
+    ? parseEasternDate(eventDateStr, validatedData.startTime)
     : null;
   const endDateTime = validatedData.endTime
-    ? new Date(`${eventDateStr}T${validatedData.endTime}:00`)
+    ? parseEasternDate(eventDateStr, validatedData.endTime)
     : null;
 
   const [workOrder] = await db
@@ -71,7 +72,7 @@ export async function createWorkOrder(data: CreateWorkOrderInput) {
     .values({
       organizationId: user.organizationId,
       eventName: validatedData.eventName,
-      eventDate: new Date(eventDateStr),
+      eventDate: parseEasternDate(eventDateStr),
       startTime: startDateTime,
       endTime: endDateTime,
       venue: validatedData.venue,
@@ -108,7 +109,7 @@ export async function createWorkOrder(data: CreateWorkOrderInput) {
     if (hours > 0) {
       await db.insert(timeLogs).values({
         workOrderId: workOrder.id,
-        date: new Date(eventDateStr),
+        date: parseEasternDate(eventDateStr),
         startTime: startDateTime,
         endTime: endDateTime,
         hours: hours.toFixed(2),
@@ -159,20 +160,20 @@ export async function updateWorkOrder(workOrderId: string, data: CreateWorkOrder
     throw new Error('Cannot edit completed work orders. Create a change order instead.');
   }
 
-  // Combine date with time if provided
+  // Combine date with time if provided (interpret as Eastern time)
   const eventDateStr = validatedData.eventDate;
   const startDateTime = validatedData.startTime
-    ? new Date(`${eventDateStr}T${validatedData.startTime}:00`)
+    ? parseEasternDate(eventDateStr, validatedData.startTime)
     : null;
   const endDateTime = validatedData.endTime
-    ? new Date(`${eventDateStr}T${validatedData.endTime}:00`)
+    ? parseEasternDate(eventDateStr, validatedData.endTime)
     : null;
 
   await db
     .update(workOrders)
     .set({
       eventName: validatedData.eventName,
-      eventDate: new Date(eventDateStr),
+      eventDate: parseEasternDate(eventDateStr),
       startTime: startDateTime,
       endTime: endDateTime,
       venue: validatedData.venue,

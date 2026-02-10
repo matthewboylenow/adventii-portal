@@ -13,13 +13,15 @@ export function formatCurrency(amount: string | number): string {
   }).format(num);
 }
 
+const APP_TIMEZONE = 'America/New_York';
+
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date;
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    timeZone: 'UTC',
+    timeZone: APP_TIMEZONE,
   }).format(d);
 }
 
@@ -29,7 +31,7 @@ export function formatShortDate(date: Date | string): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
-    timeZone: 'UTC',
+    timeZone: APP_TIMEZONE,
   }).format(d);
 }
 
@@ -41,7 +43,7 @@ export function formatDateTime(date: Date | string): string {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
-    timeZone: 'UTC',
+    timeZone: APP_TIMEZONE,
   }).format(d);
 }
 
@@ -50,8 +52,56 @@ export function formatTime(date: Date | string): string {
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
-    timeZone: 'UTC',
+    timeZone: APP_TIMEZONE,
   }).format(d);
+}
+
+/**
+ * Parse a date + optional time as America/New_York, returning a proper UTC Date.
+ * Use this whenever converting user-entered dates/times to Date objects for storage.
+ */
+export function parseEasternDate(dateStr: string, timeStr?: string): Date {
+  const datetime = timeStr
+    ? `${dateStr}T${timeStr}:00`
+    : `${dateStr}T12:00:00`;
+
+  // Determine the Eastern timezone offset for this date (handles EST/EDT)
+  const tempDate = new Date(`${datetime}Z`);
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: APP_TIMEZONE,
+    timeZoneName: 'longOffset',
+  });
+  const parts = formatter.formatToParts(tempDate);
+  const gmtOffset = parts.find(p => p.type === 'timeZoneName')?.value || 'GMT-05:00';
+  const offset = gmtOffset.replace('GMT', '');
+
+  return new Date(`${datetime}${offset}`);
+}
+
+/**
+ * Get date string (YYYY-MM-DD) in Eastern timezone for form inputs.
+ */
+export function toEasternDateString(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+  return parts; // en-CA gives YYYY-MM-DD format
+}
+
+/**
+ * Get time string (HH:MM) in Eastern timezone for form inputs.
+ */
+export function toEasternTimeString(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: APP_TIMEZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).format(date);
+  return parts; // en-GB gives HH:MM format
 }
 
 export function formatHours(hours: string | number): string {

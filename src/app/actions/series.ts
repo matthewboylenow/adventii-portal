@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { eq, and, desc, ne, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
+import { parseEasternDate } from '@/lib/utils';
 
 const eventDateSchema = z.object({
   date: z.string().min(1),
@@ -83,13 +84,13 @@ export async function createSeries(data: CreateSeriesInput) {
   const createdWorkOrders: string[] = [];
 
   for (const eventDate of validatedData.eventDates) {
-    // Combine date with time if provided
+    // Combine date with time if provided (interpret as Eastern time)
     const baseDate = eventDate.date;
     const startDateTime = eventDate.startTime
-      ? new Date(`${baseDate}T${eventDate.startTime}:00`)
+      ? parseEasternDate(baseDate, eventDate.startTime)
       : null;
     const endDateTime = eventDate.endTime
-      ? new Date(`${baseDate}T${eventDate.endTime}:00`)
+      ? parseEasternDate(baseDate, eventDate.endTime)
       : null;
 
     const [workOrder] = await db
@@ -98,7 +99,7 @@ export async function createSeries(data: CreateSeriesInput) {
         organizationId: user.organizationId,
         seriesId: series.id,
         eventName: validatedData.eventName,
-        eventDate: new Date(baseDate),
+        eventDate: parseEasternDate(baseDate),
         startTime: startDateTime,
         endTime: endDateTime,
         venue: validatedData.venue,
@@ -135,7 +136,7 @@ export async function createSeries(data: CreateSeriesInput) {
       if (hours > 0) {
         await db.insert(timeLogs).values({
           workOrderId: workOrder.id,
-          date: new Date(baseDate),
+          date: parseEasternDate(baseDate),
           startTime: startDateTime,
           endTime: endDateTime,
           hours: hours.toFixed(2),

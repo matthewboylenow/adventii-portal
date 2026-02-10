@@ -2,6 +2,7 @@ import { getCurrentUser, canCreateWorkOrders } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { serviceTemplates, users, workOrders } from '@/lib/db/schema';
+import { toEasternTimeString } from '@/lib/utils';
 import { eq, and } from 'drizzle-orm';
 import { WorkOrderForm } from '@/components/forms/work-order-form';
 
@@ -77,8 +78,8 @@ export default async function NewWorkOrderPage({ searchParams }: NewWorkOrderPag
       defaultValues = {
         eventName: sourceWO.eventName,
         eventDate: '', // Clear date so user picks a new one
-        startTime: sourceWO.startTime?.toISOString().split('T')[1]?.slice(0, 5) || '',
-        endTime: sourceWO.endTime?.toISOString().split('T')[1]?.slice(0, 5) || '',
+        startTime: sourceWO.startTime ? toEasternTimeString(sourceWO.startTime) : '',
+        endTime: sourceWO.endTime ? toEasternTimeString(sourceWO.endTime) : '',
         venue: sourceWO.venue,
         venueOther: sourceWO.venueOther || '',
         eventType: sourceWO.eventType,

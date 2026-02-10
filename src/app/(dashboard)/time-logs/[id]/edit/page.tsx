@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { timeLogs, workOrders } from '@/lib/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 import { TimeLogForm } from '@/components/forms/time-log-form';
+import { toEasternDateString, toEasternTimeString } from '@/lib/utils';
 
 interface EditTimeLogPageProps {
   params: Promise<{ id: string }>;
@@ -66,9 +67,9 @@ export default async function EditTimeLogPage({ params }: EditTimeLogPageProps) 
   // Format default values
   const defaultValues = {
     id: timeLog.id,
-    date: timeLog.date.toISOString().split('T')[0],
-    startTime: timeLog.startTime?.toISOString().split('T')[1]?.slice(0, 5) || '',
-    endTime: timeLog.endTime?.toISOString().split('T')[1]?.slice(0, 5) || '',
+    date: toEasternDateString(timeLog.date),
+    startTime: timeLog.startTime ? toEasternTimeString(timeLog.startTime) : '',
+    endTime: timeLog.endTime ? toEasternTimeString(timeLog.endTime) : '',
     hours: timeLog.hours,
     category: timeLog.category,
     description: timeLog.description || '',

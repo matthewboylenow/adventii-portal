@@ -6,6 +6,7 @@ import { eq, and, desc, sql } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 import { requireAdventiiStaff, getCurrentUser } from '@/lib/auth';
 import { z } from 'zod';
+import { parseEasternDate, toEasternDateString } from '@/lib/utils';
 
 const timeLogSchema = z.object({
   workOrderId: z.string().uuid(),
@@ -45,16 +46,16 @@ export async function createTimeLog(input: CreateTimeLogInput) {
     throw new Error('Cannot add time logs to this work order');
   }
 
-  // Parse date and times
-  const logDate = new Date(validated.date);
+  // Parse date and times (interpret as Eastern time)
+  const logDate = parseEasternDate(validated.date);
   let startTime = null;
   let endTime = null;
 
   if (validated.startTime) {
-    startTime = new Date(`${validated.date}T${validated.startTime}:00`);
+    startTime = parseEasternDate(validated.date, validated.startTime);
   }
   if (validated.endTime) {
-    endTime = new Date(`${validated.date}T${validated.endTime}:00`);
+    endTime = parseEasternDate(validated.date, validated.endTime);
   }
 
   const [timeLog] = await db
@@ -104,16 +105,18 @@ export async function updateTimeLog(
   };
 
   if (input.date) {
-    updateData.date = new Date(input.date);
+    updateData.date = parseEasternDate(input.date);
   }
   if (input.startTime !== undefined) {
+    const dateForTime = input.date || toEasternDateString(existingLog.date);
     updateData.startTime = input.startTime
-      ? new Date(`${input.date || existingLog.date.toISOString().split('T')[0]}T${input.startTime}:00`)
+      ? parseEasternDate(dateForTime, input.startTime)
       : null;
   }
   if (input.endTime !== undefined) {
+    const dateForTime = input.date || toEasternDateString(existingLog.date);
     updateData.endTime = input.endTime
-      ? new Date(`${input.date || existingLog.date.toISOString().split('T')[0]}T${input.endTime}:00`)
+      ? parseEasternDate(dateForTime, input.endTime)
       : null;
   }
   if (input.hours !== undefined) {
