@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useTransition, useEffect } from 'react';
-import { Button, Input, useToast } from '@/components/ui';
-import { assignToSeries, removeFromSeries, getSeries } from '@/app/actions/series';
-import { LinkIcon, X, Plus } from 'lucide-react';
+import { Button, Input, ConfirmDialog, useToast } from '@/components/ui';
+import { assignToSeries, removeFromSeries, getSeries, deleteSeries } from '@/app/actions/series';
+import { LinkIcon, X, Plus, Trash2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 
 interface SeriesActionsProps {
@@ -22,6 +22,7 @@ interface SeriesActionsProps {
 export function SeriesActions({ workOrderId, seriesId, seriesName, siblingWorkOrders }: SeriesActionsProps) {
   const [isPending, startTransition] = useTransition();
   const [showAssignDialog, setShowAssignDialog] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [existingSeries, setExistingSeries] = useState<{ id: string; name: string }[]>([]);
   const [selectedSeriesId, setSelectedSeriesId] = useState('');
   const [newSeriesName, setNewSeriesName] = useState('');
@@ -49,6 +50,23 @@ export function SeriesActions({ workOrderId, seriesId, seriesName, siblingWorkOr
     });
   };
 
+  const handleDeleteSeries = () => {
+    if (!seriesId) return;
+    startTransition(async () => {
+      try {
+        await deleteSeries(seriesId);
+      } catch (error) {
+        // deleteSeries redirects on success, so only handle real errors
+        if (error && typeof error === 'object' && 'digest' in error &&
+            typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
+          throw error;
+        }
+        toast.error('Failed to delete series', error instanceof Error ? error.message : undefined);
+        setShowDeleteConfirm(false);
+      }
+    });
+  };
+
   const handleAssign = () => {
     startTransition(async () => {
       try {
@@ -70,18 +88,41 @@ export function SeriesActions({ workOrderId, seriesId, seriesName, siblingWorkOr
     });
   };
 
-  // When already in a series, show remove button
+  // When already in a series, show remove + delete buttons
   if (seriesId) {
     return (
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={handleRemove}
-        isLoading={isPending}
-      >
-        <X className="h-4 w-4 mr-1" />
-        Remove from Series
-      </Button>
+      <>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRemove}
+            isLoading={isPending}
+          >
+            <X className="h-4 w-4 mr-1" />
+            Remove from Series
+          </Button>
+          <Button
+            variant="danger"
+            size="sm"
+            onClick={() => setShowDeleteConfirm(true)}
+            isLoading={isPending}
+          >
+            <Trash2 className="h-4 w-4 mr-1" />
+            Delete Series
+          </Button>
+        </div>
+        <ConfirmDialog
+          open={showDeleteConfirm}
+          onOpenChange={setShowDeleteConfirm}
+          title="Delete Entire Series"
+          description={`This will delete the series "${seriesName}" and all ${siblingWorkOrders.length} work order${siblingWorkOrders.length !== 1 ? 's' : ''} in it. Work orders that have been signed off cannot be deleted.`}
+          confirmLabel="Delete Series"
+          variant="danger"
+          onConfirm={handleDeleteSeries}
+          isLoading={isPending}
+        />
+      </>
     );
   }
 
