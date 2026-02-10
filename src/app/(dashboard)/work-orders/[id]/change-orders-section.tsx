@@ -119,9 +119,6 @@ export function ChangeOrdersSection({
     .filter((co) => co.isApproved)
     .reduce((sum, co) => sum + parseFloat(co.additionalHours), 0);
 
-  const hasOverage =
-    parseFloat(actualHours) > parseFloat(estimatedMax) + totalApprovedAdditionalHours;
-
   return (
     <>
     <ConfirmDialog
@@ -134,14 +131,10 @@ export function ChangeOrdersSection({
       onConfirm={() => confirmDeleteId && handleDelete(confirmDeleteId)}
       isLoading={deletingId !== null}
     />
-    <Card className={hasOverage && optimisticOrders.length === 0 ? 'border-yellow-300' : ''}>
+    <Card>
       <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2">
-          <AlertTriangle
-            className={`h-5 w-5 ${
-              hasOverage ? 'text-yellow-500' : 'text-gray-400'
-            }`}
-          />
+          <AlertTriangle className="h-5 w-5 text-gray-400" />
           Change Orders
           {optimisticOrders.length > 0 && (
             <span className="text-sm font-normal text-gray-500">
@@ -157,20 +150,6 @@ export function ChangeOrdersSection({
         )}
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Overage Warning */}
-        {hasOverage && optimisticOrders.filter((co) => !co.isApproved).length === 0 && (
-          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-sm text-yellow-800">
-              <strong>Hours Overage Detected:</strong> Actual hours (
-              {formatHours(actualHours)}) exceed the estimate (
-              {formatHours(estimatedMax)}
-              {totalApprovedAdditionalHours > 0 &&
-                ` + ${formatHours(String(totalApprovedAdditionalHours))} approved`}
-              ). Consider creating a change order.
-            </p>
-          </div>
-        )}
-
         {/* Change Order Form */}
         {showForm && (
           <ChangeOrderForm
