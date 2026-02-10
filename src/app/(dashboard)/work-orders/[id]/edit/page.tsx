@@ -37,8 +37,8 @@ export default async function EditWorkOrderPage({ params }: EditWorkOrderPagePro
     notFound();
   }
 
-  // Can only edit draft or pending_approval work orders
-  if (!['draft', 'pending_approval'].includes(workOrder.status)) {
+  // Can only edit draft, in_progress, or pending_approval work orders
+  if (!['draft', 'in_progress', 'pending_approval'].includes(workOrder.status)) {
     redirect(`/work-orders/${id}`);
   }
 
