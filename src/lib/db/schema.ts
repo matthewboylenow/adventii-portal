@@ -432,6 +432,9 @@ export const timeLogs = pgTable('time_logs', {
   // Category
   category: timeLogCategoryEnum('category').notNull(),
 
+  // Post-production sub-categories (when category = post_production)
+  postProductionTypes: text('post_production_types').array(),
+
   // Details
   description: text('description'),
   notes: text('notes'),

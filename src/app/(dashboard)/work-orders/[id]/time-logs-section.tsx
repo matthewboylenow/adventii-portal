@@ -16,9 +16,19 @@ interface TimeLog {
   endTime: Date | null;
   hours: string;
   category: string;
+  postProductionTypes: string[] | null;
   description: string | null;
   notes: string | null;
 }
+
+const postProductionTypeLabels: Record<string, string> = {
+  video_editing: 'Video Editing',
+  audio_editing: 'Audio Editing',
+  audio_denoising: 'Audio Denoising',
+  color_grading: 'Color Grading',
+  graphics_overlay: 'Graphics Overlay',
+  other: 'Other',
+};
 
 interface TimeLogsSectionProps {
   workOrderId: string;
@@ -151,11 +161,23 @@ export function TimeLogsSection({
                 className="flex items-start justify-between p-3 bg-gray-50 rounded-lg"
               >
                 <div className="flex-1">
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 flex-wrap">
                     <span className="font-medium">{formatHours(log.hours)}</span>
                     <span className="text-sm text-gray-500">
                       {categoryLabels[log.category] || log.category}
                     </span>
+                    {log.category === 'post_production' && log.postProductionTypes && log.postProductionTypes.length > 0 && (
+                      <div className="flex gap-1 flex-wrap">
+                        {log.postProductionTypes.map((type) => (
+                          <span
+                            key={type}
+                            className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-700"
+                          >
+                            {postProductionTypeLabels[type] || type}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="text-sm text-gray-600 mt-1">
                     {formatShortDate(log.date)}

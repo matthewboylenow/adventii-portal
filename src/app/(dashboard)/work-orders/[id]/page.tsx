@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { WorkOrderActions } from './work-order-actions';
 import { SeriesActions } from './series-actions';
+import { SeriesTimeLogButton } from './series-time-log-button';
 import { ChangeOrdersSection } from './change-orders-section';
 import { TimeLogsSection } from './time-logs-section';
 import { EstimateSection } from './estimate-section';
@@ -236,18 +237,27 @@ export default async function WorkOrderPage({ params }: WorkOrderPageProps) {
                   {siblingWorkOrders.length} work order{siblingWorkOrders.length !== 1 ? 's' : ''} in this series
                 </p>
               </div>
-              <SeriesActions
-                workOrderId={workOrder.id}
-                seriesId={seriesInfo.id}
-                seriesName={seriesInfo.name}
-                siblingWorkOrders={siblingWorkOrders.map(wo => ({
-                  id: wo.id,
-                  eventDate: wo.eventDate.toISOString(),
-                  startTime: wo.startTime?.toISOString() || null,
-                  endTime: wo.endTime?.toISOString() || null,
-                  status: wo.status,
-                }))}
-              />
+              <div className="flex gap-2">
+                {isStaff && (
+                  <SeriesTimeLogButton
+                    seriesId={seriesInfo.id}
+                    seriesName={seriesInfo.name}
+                    workOrderCount={siblingWorkOrders.length}
+                  />
+                )}
+                <SeriesActions
+                  workOrderId={workOrder.id}
+                  seriesId={seriesInfo.id}
+                  seriesName={seriesInfo.name}
+                  siblingWorkOrders={siblingWorkOrders.map(wo => ({
+                    id: wo.id,
+                    eventDate: wo.eventDate.toISOString(),
+                    startTime: wo.startTime?.toISOString() || null,
+                    endTime: wo.endTime?.toISOString() || null,
+                    status: wo.status,
+                  }))}
+                />
+              </div>
             </div>
             {siblingWorkOrders.length > 1 && (
               <div className="mt-3 pt-3 border-t border-brand-purple-100 space-y-1">

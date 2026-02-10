@@ -8,6 +8,17 @@ import { requireAdventiiStaff, getCurrentUser } from '@/lib/auth';
 import { z } from 'zod';
 import { parseEasternDate, toEasternDateString } from '@/lib/utils';
 
+const postProductionTypeValues = [
+  'video_editing',
+  'audio_editing',
+  'audio_denoising',
+  'color_grading',
+  'graphics_overlay',
+  'other',
+] as const;
+
+export type PostProductionType = typeof postProductionTypeValues[number];
+
 const timeLogSchema = z.object({
   workOrderId: z.string().uuid(),
   date: z.string(),
@@ -15,6 +26,7 @@ const timeLogSchema = z.object({
   endTime: z.string().optional(),
   hours: z.string().or(z.number()),
   category: z.enum(['on_site', 'remote', 'post_production', 'admin']),
+  postProductionTypes: z.array(z.enum(postProductionTypeValues)).optional(),
   description: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -67,6 +79,9 @@ export async function createTimeLog(input: CreateTimeLogInput) {
       endTime,
       hours: String(validated.hours),
       category: validated.category,
+      postProductionTypes: validated.category === 'post_production'
+        ? (validated.postProductionTypes || null)
+        : null,
       description: validated.description || null,
       notes: validated.notes || null,
       loggedById: user.id,
@@ -130,6 +145,16 @@ export async function updateTimeLog(
   }
   if (input.notes !== undefined) {
     updateData.notes = input.notes || null;
+  }
+  if (input.postProductionTypes !== undefined) {
+    const effectiveCategory = input.category || existingLog.category;
+    updateData.postProductionTypes = effectiveCategory === 'post_production'
+      ? (input.postProductionTypes.length > 0 ? input.postProductionTypes : null)
+      : null;
+  }
+  // Clear postProductionTypes if category changed away from post_production
+  if (input.category && input.category !== 'post_production' && input.postProductionTypes === undefined) {
+    updateData.postProductionTypes = null;
   }
 
   await db
@@ -254,4 +279,76 @@ export async function getTimeLogById(id: string) {
   }
 
   return result;
+}
+
+const bulkTimeLogSchema = z.object({
+  seriesId: z.string().uuid(),
+  hours: z.string().or(z.number()),
+  category: z.enum(['on_site', 'remote', 'post_production', 'admin']),
+  postProductionTypes: z.array(z.enum(postProductionTypeValues)).optional(),
+  description: z.string().optional(),
+  notes: z.string().optional(),
+});
+
+export type CreateBulkTimeLogInput = z.infer<typeof bulkTimeLogSchema>;
+
+export async function createBulkSeriesTimeLogs(input: CreateBulkTimeLogInput) {
+  const user = await requireAdventiiStaff();
+  const validated = bulkTimeLogSchema.parse(input);
+
+  // Get all work orders in this series
+  const seriesWorkOrders = await db
+    .select({
+      id: workOrders.id,
+      eventDate: workOrders.eventDate,
+      status: workOrders.status,
+    })
+    .from(workOrders)
+    .where(
+      and(
+        eq(workOrders.seriesId, validated.seriesId),
+        eq(workOrders.organizationId, user.organizationId)
+      )
+    )
+    .orderBy(workOrders.eventDate);
+
+  if (seriesWorkOrders.length === 0) {
+    throw new Error('No work orders found in this series');
+  }
+
+  // Filter to only eligible work orders
+  const eligible = seriesWorkOrders.filter((wo) =>
+    ['draft', 'pending_approval', 'approved', 'in_progress', 'completed'].includes(wo.status)
+  );
+
+  if (eligible.length === 0) {
+    throw new Error('No eligible work orders to add time logs to');
+  }
+
+  const ppTypes = validated.category === 'post_production'
+    ? (validated.postProductionTypes || null)
+    : null;
+
+  // Create a time log for each eligible work order
+  for (const wo of eligible) {
+    const logDate = wo.eventDate;
+
+    await db.insert(timeLogs).values({
+      workOrderId: wo.id,
+      date: logDate,
+      hours: String(validated.hours),
+      category: validated.category,
+      postProductionTypes: ppTypes,
+      description: validated.description || null,
+      notes: validated.notes || null,
+      loggedById: user.id,
+    });
+
+    await updateWorkOrderActualHours(wo.id);
+  }
+
+  revalidatePath('/time-logs');
+  revalidatePath('/work-orders');
+
+  return { success: true, count: eligible.length };
 }

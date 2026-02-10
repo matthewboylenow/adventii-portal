@@ -1,0 +1,1 @@
+ALTER TABLE "time_logs" ADD COLUMN "post_production_types" text[];

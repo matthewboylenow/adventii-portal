@@ -199,6 +199,84 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginLeft: 4,
   },
+  // Attachment page styles
+  attachmentTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    marginBottom: 4,
+  },
+  attachmentSubtitle: {
+    fontSize: 9,
+    color: '#737373',
+    marginBottom: 24,
+  },
+  detailBlock: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E5E5',
+  },
+  detailBlockLast: {
+    marginBottom: 16,
+  },
+  detailEventName: {
+    fontSize: 11,
+    fontWeight: 600,
+    marginBottom: 4,
+  },
+  detailMeta: {
+    fontSize: 9,
+    color: '#525252',
+    marginBottom: 8,
+  },
+  detailLabel: {
+    fontSize: 8,
+    color: '#737373',
+    textTransform: 'uppercase',
+    marginBottom: 3,
+    marginTop: 8,
+  },
+  detailServiceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 2,
+  },
+  detailCheckbox: {
+    fontSize: 9,
+    color: '#16A34A',
+    marginRight: 4,
+  },
+  detailServiceName: {
+    fontSize: 9,
+  },
+  detailTimeRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 2,
+  },
+  detailTimeCategory: {
+    fontSize: 9,
+    color: '#525252',
+  },
+  detailTimeHours: {
+    fontSize: 9,
+    fontWeight: 600,
+  },
+  detailTimePP: {
+    fontSize: 8,
+    color: '#6B46C1',
+    marginLeft: 8,
+  },
+  detailApproval: {
+    backgroundColor: '#F0FDF4',
+    padding: 8,
+    borderRadius: 4,
+    marginTop: 8,
+  },
+  detailApprovalText: {
+    fontSize: 9,
+    color: '#166534',
+  },
 });
 
 interface LineItem {
@@ -208,6 +286,16 @@ interface LineItem {
   unitPrice: string;
   amount: string;
   isRetainer: boolean;
+}
+
+export interface WorkOrderDetail {
+  workOrderId: string;
+  eventName: string;
+  eventDate: Date;
+  venue: string;
+  scopeServices: string[];
+  timeLogs: { category: string; hours: string; postProductionTypes: string[] | null }[];
+  approval: { name: string; title: string | null; signedAt: Date } | null;
 }
 
 interface InvoicePDFProps {
@@ -232,6 +320,7 @@ interface InvoicePDFProps {
     address: string | null;
     paymentTerms: string;
   };
+  workOrderDetails?: WorkOrderDetail[];
 }
 
 function formatCurrency(amount: string | number): string {
@@ -250,7 +339,23 @@ function formatDate(date: Date): string {
   }).format(date);
 }
 
-export function InvoicePDF({ invoice, lineItems, organization }: InvoicePDFProps) {
+const categoryLabels: Record<string, string> = {
+  on_site: 'On-Site',
+  remote: 'Remote',
+  post_production: 'Post-Production',
+  admin: 'Admin',
+};
+
+const postProductionTypeLabels: Record<string, string> = {
+  video_editing: 'Video Editing',
+  audio_editing: 'Audio Editing',
+  audio_denoising: 'Audio Denoising',
+  color_grading: 'Color Grading',
+  graphics_overlay: 'Graphics Overlay',
+  other: 'Other',
+};
+
+export function InvoicePDF({ invoice, lineItems, organization, workOrderDetails }: InvoicePDFProps) {
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
@@ -389,6 +494,105 @@ export function InvoicePDF({ invoice, lineItems, organization }: InvoicePDFProps
           </Text>
         </View>
       </Page>
+
+      {/* Work Order Details Attachment Page */}
+      {workOrderDetails && workOrderDetails.length > 0 && (
+        <Page size="LETTER" style={styles.page}>
+          <Text style={styles.attachmentTitle}>Work Order Details</Text>
+          <Text style={styles.attachmentSubtitle}>
+            Attachment to {invoice.invoiceNumber} — Service detail and sign-off summary
+          </Text>
+
+          {workOrderDetails.map((detail, idx) => {
+            const isLast = idx === workOrderDetails.length - 1;
+            // Aggregate hours by category
+            const hoursByCategory = new Map<string, { hours: number; ppTypes: Set<string> }>();
+            for (const log of detail.timeLogs) {
+              const existing = hoursByCategory.get(log.category);
+              const h = parseFloat(log.hours) || 0;
+              if (existing) {
+                existing.hours += h;
+                if (log.postProductionTypes) {
+                  for (const t of log.postProductionTypes) existing.ppTypes.add(t);
+                }
+              } else {
+                const ppTypes = new Set<string>();
+                if (log.postProductionTypes) {
+                  for (const t of log.postProductionTypes) ppTypes.add(t);
+                }
+                hoursByCategory.set(log.category, { hours: h, ppTypes });
+              }
+            }
+
+            const totalHours = Array.from(hoursByCategory.values()).reduce((sum, v) => sum + v.hours, 0);
+
+            return (
+              <View key={detail.workOrderId} style={isLast ? styles.detailBlockLast : styles.detailBlock}>
+                <Text style={styles.detailEventName}>{detail.eventName}</Text>
+                <Text style={styles.detailMeta}>
+                  {formatDate(detail.eventDate)} — {detail.venue}
+                </Text>
+
+                {/* Scope Services */}
+                {detail.scopeServices.length > 0 && (
+                  <View>
+                    <Text style={styles.detailLabel}>Scope of Work</Text>
+                    {detail.scopeServices.map((service, i) => (
+                      <View key={i} style={styles.detailServiceRow}>
+                        <Text style={styles.detailCheckbox}>&#x2713;</Text>
+                        <Text style={styles.detailServiceName}>{service}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Time Log Summary */}
+                {hoursByCategory.size > 0 && (
+                  <View>
+                    <Text style={styles.detailLabel}>
+                      Time Summary ({totalHours.toFixed(2)} hrs total)
+                    </Text>
+                    {Array.from(hoursByCategory.entries()).map(([cat, data]) => (
+                      <View key={cat} style={styles.detailTimeRow}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={styles.detailTimeCategory}>
+                            {categoryLabels[cat] || cat}
+                          </Text>
+                          {data.ppTypes.size > 0 && (
+                            <Text style={styles.detailTimePP}>
+                              ({Array.from(data.ppTypes).map(t => postProductionTypeLabels[t] || t).join(', ')})
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={styles.detailTimeHours}>{data.hours.toFixed(2)} hrs</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {/* Approval Info */}
+                {detail.approval && (
+                  <View style={styles.detailApproval}>
+                    <Text style={styles.detailApprovalText}>
+                      Approved by {detail.approval.name}
+                      {detail.approval.title ? `, ${detail.approval.title}` : ''}
+                      {' — '}
+                      {formatDate(detail.approval.signedAt)}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+
+          {/* Footer */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>
+              {invoice.invoiceNumber} — Work Order Details
+            </Text>
+          </View>
+        </Page>
+      )}
     </Document>
   );
 }

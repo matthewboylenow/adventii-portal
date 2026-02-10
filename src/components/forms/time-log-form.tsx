@@ -3,7 +3,16 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, CardContent, CardHeader, CardTitle, Input, Select, Textarea, useToast } from '@/components/ui';
-import { createTimeLog, updateTimeLog, type CreateTimeLogInput } from '@/app/actions/time-logs';
+import { createTimeLog, updateTimeLog, type CreateTimeLogInput, type PostProductionType } from '@/app/actions/time-logs';
+
+const postProductionOptions: { value: PostProductionType; label: string }[] = [
+  { value: 'video_editing', label: 'Video Editing' },
+  { value: 'audio_editing', label: 'Audio Editing' },
+  { value: 'audio_denoising', label: 'Audio Denoising' },
+  { value: 'color_grading', label: 'Color Grading' },
+  { value: 'graphics_overlay', label: 'Graphics Overlay' },
+  { value: 'other', label: 'Other' },
+];
 
 interface WorkOrder {
   id: string;
@@ -20,6 +29,7 @@ interface TimeLogFormProps {
     endTime?: string;
     hours?: string;
     category?: 'on_site' | 'remote' | 'post_production' | 'admin';
+    postProductionTypes?: string[];
     description?: string;
     notes?: string;
   };
@@ -51,6 +61,9 @@ export function TimeLogForm({
   const [hours, setHours] = useState(defaultValues?.hours || '');
   const [category, setCategory] = useState<CreateTimeLogInput['category']>(
     defaultValues?.category || 'on_site'
+  );
+  const [postProductionTypes, setPostProductionTypes] = useState<PostProductionType[]>(
+    (defaultValues?.postProductionTypes as PostProductionType[]) || []
   );
   const [description, setDescription] = useState(defaultValues?.description || '');
   const [notes, setNotes] = useState(defaultValues?.notes || '');
@@ -90,6 +103,9 @@ export function TimeLogForm({
           endTime: endTime || undefined,
           hours,
           category,
+          postProductionTypes: category === 'post_production' && postProductionTypes.length > 0
+            ? postProductionTypes
+            : undefined,
           description: description || undefined,
           notes: notes || undefined,
         };
@@ -187,6 +203,34 @@ export function TimeLogForm({
             options={categoryOptions}
             required
           />
+
+          {/* Post-Production Types */}
+          {category === 'post_production' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Post-Production Types
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {postProductionOptions.map((opt) => (
+                  <label key={opt.value} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={postProductionTypes.includes(opt.value)}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setPostProductionTypes([...postProductionTypes, opt.value]);
+                        } else {
+                          setPostProductionTypes(postProductionTypes.filter((t) => t !== opt.value));
+                        }
+                      }}
+                      className="h-4 w-4 rounded border-gray-300 text-brand-purple focus:ring-brand-purple"
+                    />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Description */}
           <Input

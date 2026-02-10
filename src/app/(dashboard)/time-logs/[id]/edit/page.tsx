@@ -72,6 +72,7 @@ export default async function EditTimeLogPage({ params }: EditTimeLogPageProps) 
     endTime: timeLog.endTime ? toEasternTimeString(timeLog.endTime) : '',
     hours: timeLog.hours,
     category: timeLog.category,
+    postProductionTypes: timeLog.postProductionTypes || [],
     description: timeLog.description || '',
     notes: timeLog.notes || '',
   };

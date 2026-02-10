@@ -1,7 +1,7 @@
 import { getCurrentUser, canCreateWorkOrders, canApprove } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { workOrders } from '@/lib/db/schema';
+import { workOrders, workOrderSeries } from '@/lib/db/schema';
 import { eq, desc, and, sql, ilike, or } from 'drizzle-orm';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
@@ -46,7 +46,7 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
     );
   }
 
-  // Get work orders with pagination
+  // Get work orders with pagination (LEFT JOIN series for grouping)
   const workOrdersList = await db
     .select({
       id: workOrders.id,
@@ -64,8 +64,11 @@ export default async function WorkOrdersPage({ searchParams }: WorkOrdersPagePro
       actualHours: workOrders.actualHours,
       hourlyRateSnapshot: workOrders.hourlyRateSnapshot,
       createdAt: workOrders.createdAt,
+      seriesId: workOrders.seriesId,
+      seriesName: workOrderSeries.name,
     })
     .from(workOrders)
+    .leftJoin(workOrderSeries, eq(workOrders.seriesId, workOrderSeries.id))
     .where(and(...conditions))
     .orderBy(desc(workOrders.eventDate))
     .limit(limit)

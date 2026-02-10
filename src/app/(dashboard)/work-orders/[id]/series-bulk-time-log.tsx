@@ -3,21 +3,13 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui';
-import { createTimeLog, type PostProductionType } from '@/app/actions/time-logs';
-import { X } from 'lucide-react';
+import { createBulkSeriesTimeLogs, type PostProductionType } from '@/app/actions/time-logs';
+import { X, Clock } from 'lucide-react';
 
-const postProductionOptions: { value: PostProductionType; label: string }[] = [
-  { value: 'video_editing', label: 'Video Editing' },
-  { value: 'audio_editing', label: 'Audio Editing' },
-  { value: 'audio_denoising', label: 'Audio Denoising' },
-  { value: 'color_grading', label: 'Color Grading' },
-  { value: 'graphics_overlay', label: 'Graphics Overlay' },
-  { value: 'other', label: 'Other' },
-];
-
-interface TimeLogFormProps {
-  workOrderId: string;
-  eventName: string;
+interface SeriesBulkTimeLogProps {
+  seriesId: string;
+  seriesName: string;
+  workOrderCount: number;
   onClose: () => void;
 }
 
@@ -28,32 +20,26 @@ const categoryOptions = [
   { value: 'admin', label: 'Admin' },
 ];
 
-export function TimeLogForm({ workOrderId, eventName, onClose }: TimeLogFormProps) {
+const postProductionOptions: { value: PostProductionType; label: string }[] = [
+  { value: 'video_editing', label: 'Video Editing' },
+  { value: 'audio_editing', label: 'Audio Editing' },
+  { value: 'audio_denoising', label: 'Audio Denoising' },
+  { value: 'color_grading', label: 'Color Grading' },
+  { value: 'graphics_overlay', label: 'Graphics Overlay' },
+  { value: 'other', label: 'Other' },
+];
+
+export function SeriesBulkTimeLog({ seriesId, seriesName, workOrderCount, onClose }: SeriesBulkTimeLogProps) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [success, setSuccess] = useState<string | null>(null);
 
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
   const [hours, setHours] = useState('');
   const [category, setCategory] = useState<string>('on_site');
   const [postProductionTypes, setPostProductionTypes] = useState<PostProductionType[]>([]);
   const [description, setDescription] = useState('');
   const [notes, setNotes] = useState('');
-
-  // Calculate hours from start/end time
-  const calculateHours = () => {
-    if (startTime && endTime) {
-      const start = new Date(`2000-01-01T${startTime}`);
-      const end = new Date(`2000-01-01T${endTime}`);
-      const diff = (end.getTime() - start.getTime()) / (1000 * 60 * 60);
-      if (diff > 0) {
-        setHours(diff.toFixed(2));
-      }
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,11 +47,8 @@ export function TimeLogForm({ workOrderId, eventName, onClose }: TimeLogFormProp
     setError(null);
 
     try {
-      await createTimeLog({
-        workOrderId,
-        date,
-        startTime: startTime || undefined,
-        endTime: endTime || undefined,
+      const result = await createBulkSeriesTimeLogs({
+        seriesId,
         hours,
         category: category as 'on_site' | 'remote' | 'post_production' | 'admin',
         postProductionTypes: category === 'post_production' && postProductionTypes.length > 0
@@ -75,19 +58,11 @@ export function TimeLogForm({ workOrderId, eventName, onClose }: TimeLogFormProp
         notes: notes || undefined,
       });
 
-      setSuccess(true);
+      setSuccess(`Time logged to ${result.count} work order${result.count !== 1 ? 's' : ''}`);
       router.refresh();
 
-      // Reset form for another entry
       setTimeout(() => {
-        setDate(new Date().toISOString().split('T')[0]);
-        setStartTime('');
-        setEndTime('');
-        setHours('');
-        setPostProductionTypes([]);
-        setDescription('');
-        setNotes('');
-        setSuccess(false);
+        onClose();
       }, 1500);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to log time');
@@ -100,36 +75,31 @@ export function TimeLogForm({ workOrderId, eventName, onClose }: TimeLogFormProp
     return (
       <Card className="border-green-200 bg-green-50">
         <CardContent className="p-4">
-          <p className="text-green-700 text-center">Time logged successfully!</p>
+          <p className="text-green-700 text-center">{success}</p>
         </CardContent>
       </Card>
     );
   }
 
   return (
-    <Card>
+    <Card className="border-brand-purple-200">
       <CardHeader className="flex flex-row items-center justify-between py-3">
-        <CardTitle className="text-base">Add Time Log</CardTitle>
+        <CardTitle className="text-base flex items-center gap-2">
+          <Clock className="h-4 w-4" />
+          Add Time to All in Series
+        </CardTitle>
         <Button variant="ghost" size="sm" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </CardHeader>
       <CardContent>
+        <p className="text-sm text-gray-600 mb-4">
+          Apply to <span className="font-medium">{workOrderCount} work orders</span> in &quot;{seriesName}&quot;.
+          Each WO will get a time log using its own event date.
+        </p>
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Date and Category Row */}
+          {/* Category and Hours Row */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Date *
-              </label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent"
-              />
-            </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Category *
@@ -146,6 +116,21 @@ export function TimeLogForm({ workOrderId, eventName, onClose }: TimeLogFormProp
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Hours *
+              </label>
+              <input
+                type="number"
+                step="0.25"
+                min="0.25"
+                value={hours}
+                onChange={(e) => setHours(e.target.value)}
+                required
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent"
+                placeholder="e.g., 2.5"
+              />
             </div>
           </div>
 
@@ -176,49 +161,6 @@ export function TimeLogForm({ workOrderId, eventName, onClose }: TimeLogFormProp
               </div>
             </div>
           )}
-
-          {/* Time Inputs */}
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Start Time
-              </label>
-              <input
-                type="time"
-                value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-                onBlur={calculateHours}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                End Time
-              </label>
-              <input
-                type="time"
-                value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                onBlur={calculateHours}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Hours *
-              </label>
-              <input
-                type="number"
-                step="0.25"
-                min="0.25"
-                value={hours}
-                onChange={(e) => setHours(e.target.value)}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent"
-                placeholder="e.g., 2.5"
-              />
-            </div>
-          </div>
 
           {/* Description */}
           <div>
@@ -259,7 +201,7 @@ export function TimeLogForm({ workOrderId, eventName, onClose }: TimeLogFormProp
               Cancel
             </Button>
             <Button type="submit" disabled={isSubmitting}>
-              {isSubmitting ? 'Saving...' : 'Log Time'}
+              {isSubmitting ? 'Adding...' : `Add to ${workOrderCount} Work Orders`}
             </Button>
           </div>
         </form>
