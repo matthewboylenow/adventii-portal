@@ -1,10 +1,10 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { workOrders, workOrderSeries, organizations, approvalTokens } from '@/lib/db/schema';
+import { workOrders, workOrderSeries, organizations, approvalTokens, approvals, changeOrders, timeLogs, incidentReports, invoiceLineItems } from '@/lib/db/schema';
 import { requireAdventiiStaff, requireUser } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { eq, and, desc, ne } from 'drizzle-orm';
+import { eq, and, desc, ne, inArray } from 'drizzle-orm';
 import { z } from 'zod';
 import { redirect } from 'next/navigation';
 
@@ -256,8 +256,25 @@ export async function deleteSeries(seriesId: string) {
     throw new Error('Cannot delete series with signed-off work orders. Delete individual work orders first.');
   }
 
-  // Delete all in_progress work orders in series
-  await db.delete(workOrders).where(eq(workOrders.seriesId, seriesId));
+  // Get all work order IDs in the series
+  const seriesWOs = await db
+    .select({ id: workOrders.id })
+    .from(workOrders)
+    .where(eq(workOrders.seriesId, seriesId));
+  const woIds = seriesWOs.map((wo) => wo.id);
+
+  if (woIds.length > 0) {
+    // Delete all related records first (FK constraints)
+    await db.delete(approvalTokens).where(inArray(approvalTokens.workOrderId, woIds));
+    await db.delete(approvals).where(inArray(approvals.workOrderId, woIds));
+    await db.delete(changeOrders).where(inArray(changeOrders.workOrderId, woIds));
+    await db.delete(timeLogs).where(inArray(timeLogs.workOrderId, woIds));
+    await db.delete(incidentReports).where(inArray(incidentReports.workOrderId, woIds));
+    await db.delete(invoiceLineItems).where(inArray(invoiceLineItems.workOrderId, woIds));
+
+    // Delete work orders
+    await db.delete(workOrders).where(eq(workOrders.seriesId, seriesId));
+  }
 
   // Delete series
   await db.delete(workOrderSeries).where(eq(workOrderSeries.id, seriesId));
