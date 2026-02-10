@@ -19,6 +19,7 @@ export function formatDate(date: Date | string): string {
     year: 'numeric',
     month: 'long',
     day: 'numeric',
+    timeZone: 'UTC',
   }).format(d);
 }
 
@@ -28,6 +29,7 @@ export function formatShortDate(date: Date | string): string {
     year: 'numeric',
     month: 'short',
     day: 'numeric',
+    timeZone: 'UTC',
   }).format(d);
 }
 
@@ -39,6 +41,7 @@ export function formatDateTime(date: Date | string): string {
     day: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'UTC',
   }).format(d);
 }
 
@@ -47,6 +50,7 @@ export function formatTime(date: Date | string): string {
   return new Intl.DateTimeFormat('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'UTC',
   }).format(d);
 }
 

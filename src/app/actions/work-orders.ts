@@ -1,7 +1,7 @@
 'use server';
 
 import { db } from '@/lib/db';
-import { workOrders, organizations, approvalTokens } from '@/lib/db/schema';
+import { workOrders, organizations, approvalTokens, timeLogs } from '@/lib/db/schema';
 import { requireAdventiiStaff, requireUser, canEditWorkOrders, canDeleteWorkOrders } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
 import { eq, and } from 'drizzle-orm';
@@ -100,6 +100,30 @@ export async function createWorkOrder(data: CreateWorkOrderInput) {
       createdById: user.id,
     })
     .returning();
+
+  // Auto-create draft time log if start/end times provided
+  if (startDateTime && endDateTime) {
+    const diffMs = endDateTime.getTime() - startDateTime.getTime();
+    const hours = Math.max(0, diffMs / (1000 * 60 * 60));
+    if (hours > 0) {
+      await db.insert(timeLogs).values({
+        workOrderId: workOrder.id,
+        date: new Date(eventDateStr),
+        startTime: startDateTime,
+        endTime: endDateTime,
+        hours: hours.toFixed(2),
+        category: 'on_site',
+        description: `${validatedData.eventName}`,
+        loggedById: user.id,
+      });
+
+      // Update actual hours on the work order
+      await db
+        .update(workOrders)
+        .set({ actualHours: hours.toFixed(2) })
+        .where(eq(workOrders.id, workOrder.id));
+    }
+  }
 
   revalidatePath('/work-orders');
   redirect(`/work-orders/${workOrder.id}`);

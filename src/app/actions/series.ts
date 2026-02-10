@@ -128,6 +128,29 @@ export async function createSeries(data: CreateSeriesInput) {
       })
       .returning();
 
+    // Auto-create draft time log if start/end times provided
+    if (startDateTime && endDateTime) {
+      const diffMs = endDateTime.getTime() - startDateTime.getTime();
+      const hours = Math.max(0, diffMs / (1000 * 60 * 60));
+      if (hours > 0) {
+        await db.insert(timeLogs).values({
+          workOrderId: workOrder.id,
+          date: new Date(baseDate),
+          startTime: startDateTime,
+          endTime: endDateTime,
+          hours: hours.toFixed(2),
+          category: 'on_site',
+          description: `${validatedData.eventName}`,
+          loggedById: user.id,
+        });
+
+        await db
+          .update(workOrders)
+          .set({ actualHours: hours.toFixed(2) })
+          .where(eq(workOrders.id, workOrder.id));
+      }
+    }
+
     createdWorkOrders.push(workOrder.id);
   }
 
