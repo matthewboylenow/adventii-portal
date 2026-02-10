@@ -52,17 +52,19 @@ export function SeriesActions({ workOrderId, seriesId, seriesName, siblingWorkOr
 
   const handleDeleteSeries = () => {
     if (!seriesId) return;
+    setShowDeleteConfirm(false);
     startTransition(async () => {
       try {
         await deleteSeries(seriesId);
       } catch (error) {
-        // deleteSeries redirects on success, so only handle real errors
+        // deleteSeries calls redirect() on success which throws NEXT_REDIRECT
+        // Navigate client-side instead to avoid hydration issues with open dialogs
         if (error && typeof error === 'object' && 'digest' in error &&
             typeof error.digest === 'string' && error.digest.startsWith('NEXT_REDIRECT')) {
-          throw error;
+          router.push('/work-orders');
+          return;
         }
         toast.error('Failed to delete series', error instanceof Error ? error.message : undefined);
-        setShowDeleteConfirm(false);
       }
     });
   };
